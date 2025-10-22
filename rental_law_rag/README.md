@@ -11,22 +11,27 @@ rental_law_rag/
 ├── README.md
 ├── requirements.txt
 ├── .gitignore
-├── .env.example
 ├── data/
-│ ├── raw/ # put PDFs here (OR.pdf, VMWG.pdf, STGB.pdf)
-│ └── json/ # generated per-article JSON (gitignored)
-├── store/ # Chroma index (gitignored)
-├── src/
-│ ├── pdf_ingest.py # PDF → per-article JSON
-│ ├── build_index.py # JSON → Chroma index
-│ ├── retrieve.py # retrieval helpers + context pack
-│ ├── answer.py # call Ollama to answer from context
-│ └── cli.py # simple CLI interface
-└── notebooks/
-├── 0_Installations.ipynb (+ .py)
-├── 1_Data_Preparation.ipynb (+ .py)
-├── 2_Indexing_and_Retrieval.ipynb (+ .py)
-└── 3_Answering_and_Evaluation.ipynb (+ .py)
+│   ├── raw/
+│   │   ├── OR.pdf
+│   │   ├── STGB.pdf
+│   │   └── VMWG.pdf
+│   └── json/
+│       └── .gitkeep
+├── store/
+│   └── .gitkeep
+├── notebooks/
+│   ├── 0_installations.ipynb
+│   ├── 1_data_preparation.ipynb
+│   ├── 2_indexing_and_retrieval.ipynb
+│   └── 3_answer_generation.ipynb
+└── src/
+    ├── 1_data_preparation.py
+    ├── 2_indexing_and_retrieval.py
+    ├── 3_answer_generation.py
+    ├── installations.py
+    └── config.py
+
 
 
 
