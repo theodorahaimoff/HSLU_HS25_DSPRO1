@@ -43,3 +43,25 @@ pip install -r requirements.txt
 ollama serve            # in one terminal
 ollama pull llama3:8b   # once
 
+
+## Usage
+
+### 1️⃣ Add PDFs
+Put the 3 law PDFs into `data/raw/`:
+- `OR.pdf`
+- `VMWG.pdf`
+- `STGB.pdf`
+
+### 2️⃣ Build JSON dataset
+Run **Notebook 1** (`1_Data_Preparation.ipynb`)  
+→ generates per-article JSON files in `data/json/`.
+
+### 3️⃣ Build Chroma index
+Run **Notebook 2** (`2_Indexing_and_Retrieval.ipynb`)  
+→ creates the persistent database in `store/`.
+
+### 4️⃣ Ask questions
+Run **Notebook 3** (`3_Answering_and_Evaluation.ipynb`)  
+→ asks Ollama locally (model `llama3:8b`) and prints legal answers with citations.
+
+
