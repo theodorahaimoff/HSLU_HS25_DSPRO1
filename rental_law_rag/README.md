@@ -64,4 +64,10 @@ Run **Notebook 2** (`2_Indexing_and_Retrieval.ipynb`)
 Run **Notebook 3** (`3_Answering_and_Evaluation.ipynb`)  
 → asks Ollama locally (model `llama3:8b`) and prints legal answers with citations.
 
+## Notes for Collaborators
+- Generated folders (`data/json/`, `store/`) are **git-ignored** — everyone rebuilds them locally.
+- If Ollama isn’t running, start it:
+  ```bash
+  ollama serve
+  ollama pull llama3:8b
 
