@@ -18,6 +18,7 @@ store/
 
 # Keep empty folders visible
 !data/json/.gitkeep
+!store/.gitkeep
 
 # OS cruft
 .DS_Store

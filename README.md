@@ -26,11 +26,11 @@ rental_law_rag/
 │   ├── 2_indexing_and_retrieval.ipynb
 │   └── 3_answer_generation.ipynb
 └── src/
+    ├── _0_installations.py
     ├── _1_data_preparation.py
     ├── _2_indexing_and_retrieval.py
     ├── _3_answer_generation.py
-    ├── installations.py
-    └── config.py
+    └── main.py
 ```
 
 
