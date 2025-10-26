@@ -57,19 +57,23 @@ Put the 3 law PDFs into `data/raw/`:
 - `VMWG.pdf`
 - `STGB.pdf`
 
-### 2️⃣ Build JSON dataset
-Run **Notebook 1** (`1_Data_Preparation.ipynb`)  
+### 2️⃣ Install packages
+Run **Notebook 0** (`0_installation.ipynb`) \
+→ installs the packages needed for the next steps
+
+### 3️⃣ Build JSON dataset
+Run **Notebook 1** (`1_data_preparation.ipynb`)  
 → generates per-article JSON files in `data/json/`.
 
-### 3️⃣ Build Chroma index
-Run **Notebook 2** (`2_Indexing_and_Retrieval.ipynb`)  
+### 4️⃣ Build Chroma index
+Run **Notebook 2** (`2_indexing_and_retrieval.ipynb`)  
 → creates the persistent database in `store/`.
 
-### 4️⃣ Ask questions
-Run **Notebook 3** (`3_Answering_and_Evaluation.ipynb`)  
+### 5️⃣ Ask questions
+Run **Notebook 3** (`3_answering_and_evaluation.ipynb`)  
 → asks Ollama locally (model `llama3:8b`) and prints legal answers with citations.
 
-### 5️⃣ Run Streamlit app
+### 6️⃣ Run Streamlit app
 Run the following command on your terminal
 ```bash
 streamlit run src/main.py
@@ -83,8 +87,9 @@ The application's GUI should now be available under http://localhost:8501/
   ollama serve
   ollama pull llama3:8b
   ```
-- After editing any of the notebooks, generate new Python scripts:
+- After editing any of the notebooks, generate the respective Python script:
   ```bash
-  jupyter nbconvert --to script notebooks/*.ipynb --output-dir=src
+  jupyter nbconvert --to script notebooks/1_data_preparation.ipynb --output "_1_data_preparation.py" --output-dir=src
   ```
-  Make sure the exported scripts have a _ in front of their name (in Python scripts shouldn't begin with a number so to avoid any issues, rename the scripts from "1_data.." to "_1_data.." etc.)
+  > [!NOTE]
+  > Make sure you keep the _ character in front of the output file name, Python has issues when a script begins with a number
