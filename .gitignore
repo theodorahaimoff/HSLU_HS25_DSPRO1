@@ -10,13 +10,14 @@ __pycache__/
 .venv/
 .env
 .env.*
+.idea/
 
 # Generated data & indexes
-../data/json/
+data/json/
 store/
 
 # Keep empty folders visible
-!../data/json/.gitkeep
+!data/json/.gitkeep
 
 # OS cruft
 .DS_Store
@@ -24,3 +25,4 @@ Thumbs.db
 
 # (optional) PDFs, if you don’t use LFS
 data/raw/*.pdf
+

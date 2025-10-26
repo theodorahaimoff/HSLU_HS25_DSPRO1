@@ -18,13 +18,13 @@
 
 # ⚙️ Imports & Paths
 
-# In[82]:
+# In[1]:
 
 
 import os, json, hashlib
 from pathlib import Path
 
-import chromadb
+import chromadb, logging
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
@@ -43,6 +43,8 @@ EMBED_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 TOP_K  = 5     # final results returned
 PRE_K  = 20    # prefetch for (optional) re-ranking
 
+logging.getLogger("chromadb").setLevel(logging.ERROR)
+
 
 # ## Design Choices
 # 
@@ -54,7 +56,7 @@ PRE_K  = 20    # prefetch for (optional) re-ranking
 
 # 🧱 Chroma helpers
 
-# In[86]:
+# In[2]:
 
 
 # Disable analytics / telemetry
@@ -86,7 +88,7 @@ def wipe_collection(name=CHROMA_COLLECTION):
 
 # 🧠 Embedder init
 
-# In[89]:
+# In[3]:
 
 
 _embedder = None
@@ -100,7 +102,7 @@ def embedder():
 
 # 📥 Load JSON files
 
-# In[92]:
+# In[4]:
 
 
 def load_article_jsons(root: Path = DATA_JSON):
@@ -144,7 +146,7 @@ if articles:
 
 # 🏗️ Build/Update index
 
-# In[96]:
+# In[5]:
 
 
 def build_index(items, batch_size=64):
@@ -183,7 +185,7 @@ collection = build_index(articles)
 
 # 🧰 Retrieve & (optional) Re-rank
 
-# In[99]:
+# In[6]:
 
 
 def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, collection_name: str = CHROMA_COLLECTION):
@@ -232,7 +234,7 @@ def pack_context(retrieved, max_chars=8000, per_source_cap=3):
 # - metadata is present for citations.
 # 
 
-# In[101]:
+# In[7]:
 
 
 queries = [
@@ -251,7 +253,7 @@ for q in queries:
 
 # 👀  Inspect one context block
 
-# In[103]:
+# In[8]:
 
 
 sample_q = "Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?"

@@ -71,8 +71,12 @@ Run **Notebook 3** (`3_Answering_and_Evaluation.ipynb`)
 
 ## Notes for Collaborators
 - Generated folders (`data/json/`, `store/`) are **git-ignored** — everyone rebuilds them locally.
-- If Ollama isn’t running, start it:
+- If Ollama isn’t running, start it using:
   ```bash
   ollama serve
   ollama pull llama3:8b
+  ```
+- After editing any notebooks, generate new Python scripts:
+  ```bash
+  jupyter nbconvert --to script notebooks/*.ipynb --output-dir=src
   ```

@@ -5,18 +5,17 @@
 
 
 get_ipython().system('pip install --upgrade pip')
-get_ipython().system('pip install -r requirements.txt')
+get_ipython().system("pip install -r '../requirements.txt'")
 
 
-# In[3]:
+# In[2]:
 
 
-import chromadb, fitz
+import chromadb, pymupdf
 from sentence_transformers import SentenceTransformer
 
 print("Chroma version:", chromadb.__version__)
-print("PyMuPDF version:", fitz.__doc__.split()[1])
-
+print("PyMuPDF version:", pymupdf.__doc__)
 
 
 # In[ ]:

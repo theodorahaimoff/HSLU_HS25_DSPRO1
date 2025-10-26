@@ -16,17 +16,17 @@
 
 # ⚙️ Imports and Setup
 
-# In[17]:
+# In[1]:
 
 
 import re, json
 from pathlib import Path
-import fitz  # PyMuPDF
+import pymupdf
 from tqdm import tqdm
 
 # Paths
-DATA_RAW = Path("data/raw")     # PDFs go here
-DATA_JSON = Path("data/json")   # Will hold one JSON per article
+DATA_RAW = Path("../data/raw")     # PDFs go here
+DATA_JSON = Path("../data/json")   # Will hold one JSON per article
 DATA_JSON.mkdir(parents=True, exist_ok=True)
 
 
@@ -41,7 +41,7 @@ DATA_JSON.mkdir(parents=True, exist_ok=True)
 
 # 🧩 Helper Functions
 
-# In[20]:
+# In[2]:
 
 
 # --- Cleaning & Splitting ---
@@ -58,7 +58,7 @@ def clean_text(t: str) -> str:
 def read_pdf_text(pdf_path: Path) -> str:
     """Extract all text from a PDF using PyMuPDF."""
     pages = []
-    with fitz.open(pdf_path) as doc:
+    with pymupdf.open(pdf_path) as doc:
         for p in doc:
             pages.append(p.get_text("text"))
     return clean_text("\n".join(pages))
@@ -89,7 +89,7 @@ def parse_article_number(header_line: str):
 
 # 📄 Process PDFs → Save JSON
 
-# In[23]:
+# In[3]:
 
 
 def detect_law_tag(stem: str) -> str:
@@ -124,7 +124,7 @@ def ingest_pdf(pdf_path: Path):
 
 # ▶️ Run Conversion
 
-# In[25]:
+# In[4]:
 
 
 pdfs = sorted(DATA_RAW.glob("*.pdf"))
@@ -145,7 +145,7 @@ print(f"✅ Done! Created ~{total_articles} article JSON files.")
 
 # 👀 Quick Inspection
 
-# In[35]:
+# In[5]:
 
 
 samples = list((DATA_JSON / "OR").glob("*.json"))[:3]

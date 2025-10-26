@@ -15,14 +15,14 @@
 
 # Imports & Paths
 
-# In[42]:
+# In[2]:
 
 
 import os, json, requests
 from pathlib import Path
 from typing import List, Tuple
 
-import chromadb
+import chromadb, logging
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
@@ -42,6 +42,8 @@ MAX_CTX_CHARS = 8000
 OLLAMA_HOST  = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3:8b")
 
+logging.getLogger("chromadb").setLevel(logging.ERROR)
+
 
 # We verify:
 # - Chroma store exists and is readable
@@ -51,7 +53,7 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3:8b")
 
 # Chroma & Embedder helpers (same logic as indexing_and_retrieval)
 
-# In[45]:
+# In[3]:
 
 
 # Disable analytics/telemetry
@@ -75,7 +77,7 @@ def embedder():
 
 # Check collection & doc count
 
-# In[48]:
+# In[4]:
 
 
 try:
@@ -87,7 +89,7 @@ except Exception as e:
 
 # Check Ollama is running
 
-# In[51]:
+# In[5]:
 
 
 def check_ollama(host=OLLAMA_HOST, model=OLLAMA_MODEL):
@@ -124,7 +126,7 @@ if not ok:
 
 # Retrieve & (optional) re-rank + pack context
 
-# In[54]:
+# In[6]:
 
 
 def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, collection_name: str = CHROMA_COLLECTION):
@@ -176,18 +178,21 @@ def pack_context(retrieved, max_chars=MAX_CTX_CHARS, per_source_cap=3):
 # Then **References** as `[LAW Art.X – filename]`.
 # 
 
-# In[56]:
+# In[62]:
 
 
 PROMPT = """You are a Swiss rental-law assistant.
 Answer ONLY from the CONTEXT. If insufficient, say so.
+Do NOT refer to yourself, your role, or your identity in the answer.
+Start directly with the content requested (no introductions).
 
 FORMAT STRICTLY:
-1) One-sentence answer.
-2) Short numbered steps/options (state “Tenant” or “Landlord”).
-3) Forms required (exact names if present).
-4) Articles to read next (e.g., Art. 269 OR; Art. 19 VMWG).
-References: list distinct sources as [LAW Art.X – filename].
+1) "Answer:" Write ONE concise sentence summarizing the answer.
+2) "Steps/Options:" A section with numbered points (1., 2., 3., …) depending on the perspective you're given (Tenant or Landlord).
+3) "Forms:" A list of the forms needed (exact names if present) in bullet points (- item).
+4) "Read next:" A list of articles to read next (e.g., Art. 269 OR; Art. 19 VMWG) in bullet points (- item).
+5) "References:" A list of the distinct sources as [law name Art.X – filename] in bullet points (- item).
+6) Respond ONLY in the specified language and keep exactly this structure and order, do NOT merge multiple steps with semicolons or commas
 
 CONTEXT:
 {context}
@@ -196,10 +201,10 @@ QUESTION:
 {question}
 """
 
-def answer_with_ollama(question: str, perspective="Tenant", k=TOP_K, model=OLLAMA_MODEL, host=OLLAMA_HOST):
+def answer_with_ollama(question: str, perspective: str, language: str, k=TOP_K, model=OLLAMA_MODEL, host=OLLAMA_HOST):
     hits = retrieve(question, k=k)
     context = pack_context(hits, max_chars=MAX_CTX_CHARS)
-    prompt = PROMPT.format(context=context, question=f"[Perspective: {perspective}] {question}")
+    prompt = PROMPT.format(context=context, question=f"[Perspective: {perspective}] [Language: {language}] {question}")
 
     r = requests.post(f"{host}/api/generate",
                       json={"model": model, "prompt": prompt, "stream": False},
@@ -216,11 +221,11 @@ def answer_with_ollama(question: str, perspective="Tenant", k=TOP_K, model=OLLAM
 
 # Single question test
 
-# In[59]:
+# In[63]:
 
 
 q = "Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?"
-ans, hits = answer_with_ollama(q, perspective="Tenant", k=6)
+ans, hits = answer_with_ollama(q, perspective="Tenant", language="German", k=6)
 print("=== ANSWER ===\n", ans, "\n")
 print("=== SOURCES ===")
 for _, m, _ in hits:
@@ -235,20 +240,21 @@ for _, m, _ in hits:
 
 # Batch evaluation
 
-# In[62]:
+# In[64]:
 
 
 eval_questions = [
-    ("Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?", "Tenant"),
-    ("Welche Rechte habe ich bei Mängeln in der Wohnung?", "Tenant"),
-    ("Darf der Vermieter während laufendem Schlichtungsverfahren kündigen?", "Landlord"),
-    ("Wann sind Mietzinserhöhungen wegen energetischer Verbesserungen zulässig?", "Landlord"),
+    ("Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?", "Tenant", "English"),
+    ("Welche Rechte habe ich bei Mängeln in der Wohnung?", "Tenant", "German"),
+    ("Darf der Vermieter während laufendem Schlichtungsverfahren kündigen?", "Landlord", "English"),
+    ("Wann sind Mietzinserhöhungen wegen energetischer Verbesserungen zulässig?", "Landlord", "German"),
 ]
 
-for q, perspective in eval_questions:
-    print("\n" + "="*80)
-    print("Q:", q, "| Perspective:", perspective)
-    ans, hits = answer_with_ollama(q, perspective=perspective, k=6)
+for q, perspective, language in eval_questions:
+    print("\n" + "="*150)
+    print("Q:", q, "| Perspective:", perspective, "| Language: ", language)
+    print("="*150)
+    ans, hits = answer_with_ollama(q, perspective=perspective, language=language, k=6)
     print("\n--- ANSWER ---\n", ans[:2000])  # trim for display
     print("\n--- REFERENCES ---")
     refs = {(m.get('law'), m.get('article'), m.get('source')) for _, m, _ in hits}
