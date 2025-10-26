@@ -26,9 +26,9 @@ rental_law_rag/
 │   ├── 2_indexing_and_retrieval.ipynb
 │   └── 3_answer_generation.ipynb
 └── src/
-    ├── 1_data_preparation.py
-    ├── 2_indexing_and_retrieval.py
-    ├── 3_answer_generation.py
+    ├── _1_data_preparation.py
+    ├── _2_indexing_and_retrieval.py
+    ├── _3_answer_generation.py
     ├── installations.py
     └── config.py
 ```
@@ -69,6 +69,13 @@ Run **Notebook 2** (`2_Indexing_and_Retrieval.ipynb`)
 Run **Notebook 3** (`3_Answering_and_Evaluation.ipynb`)  
 → asks Ollama locally (model `llama3:8b`) and prints legal answers with citations.
 
+### 5️⃣ Run Streamlit app
+Run the following command on your terminal
+```bash
+streamlit run src/main.py
+```
+The application's GUI should now be available under http://localhost:8501/
+
 ## Notes for Collaborators
 - Generated folders (`data/json/`, `store/`) are **git-ignored** — everyone rebuilds them locally.
 - If Ollama isn’t running, start it using:
@@ -76,7 +83,8 @@ Run **Notebook 3** (`3_Answering_and_Evaluation.ipynb`)
   ollama serve
   ollama pull llama3:8b
   ```
-- After editing any notebooks, generate new Python scripts:
+- After editing any of the notebooks, generate new Python scripts:
   ```bash
   jupyter nbconvert --to script notebooks/*.ipynb --output-dir=src
   ```
+  Make sure the exported scripts have a _ in front of their name (in Python scripts shouldn't begin with a number so to avoid any issues, rename the scripts from "1_data.." to "_1_data.." etc.)

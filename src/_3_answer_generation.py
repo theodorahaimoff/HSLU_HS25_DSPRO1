@@ -224,12 +224,13 @@ def answer_with_ollama(question: str, perspective: str, language: str, k=TOP_K, 
 # In[63]:
 
 
-q = "Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?"
-ans, hits = answer_with_ollama(q, perspective="Tenant", language="German", k=6)
-print("=== ANSWER ===\n", ans, "\n")
-print("=== SOURCES ===")
-for _, m, _ in hits:
-    print(f"- {m.get('law')} Art.{m.get('article')} – {m.get('source')}")
+def single_question_test():
+    q = "Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?"
+    ans, hits = answer_with_ollama(q, perspective="Tenant", language="German", k=6)
+    print("=== ANSWER ===\n", ans, "\n")
+    print("=== SOURCES ===")
+    for _, m, _ in hits:
+        print(f"- {m.get('law')} Art.{m.get('article')} – {m.get('source')}")
 
 
 # We’ll run several canonical questions to check:
@@ -243,23 +244,24 @@ for _, m, _ in hits:
 # In[64]:
 
 
-eval_questions = [
-    ("Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?", "Tenant", "English"),
-    ("Welche Rechte habe ich bei Mängeln in der Wohnung?", "Tenant", "German"),
-    ("Darf der Vermieter während laufendem Schlichtungsverfahren kündigen?", "Landlord", "English"),
-    ("Wann sind Mietzinserhöhungen wegen energetischer Verbesserungen zulässig?", "Landlord", "German"),
-]
+def batch_evaluation():
+    eval_questions = [
+        ("Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?", "Tenant", "English"),
+        ("Welche Rechte habe ich bei Mängeln in der Wohnung?", "Tenant", "German"),
+        ("Darf der Vermieter während laufendem Schlichtungsverfahren kündigen?", "Landlord", "English"),
+        ("Wann sind Mietzinserhöhungen wegen energetischer Verbesserungen zulässig?", "Landlord", "German"),
+    ]
 
-for q, perspective, language in eval_questions:
-    print("\n" + "="*150)
-    print("Q:", q, "| Perspective:", perspective, "| Language: ", language)
-    print("="*150)
-    ans, hits = answer_with_ollama(q, perspective=perspective, language=language, k=6)
-    print("\n--- ANSWER ---\n", ans[:2000])  # trim for display
-    print("\n--- REFERENCES ---")
-    refs = {(m.get('law'), m.get('article'), m.get('source')) for _, m, _ in hits}
-    for law, art, src in refs:
-        print(f"[{law} Art.{art} – {src}]")
+    for q, perspective, language in eval_questions:
+        print("\n" + "="*150)
+        print("Q:", q, "| Perspective:", perspective, "| Language: ", language)
+        print("="*150)
+        ans, hits = answer_with_ollama(q, perspective=perspective, language=language, k=6)
+        print("\n--- ANSWER ---\n", ans[:2000])  # trim for display
+        print("\n--- REFERENCES ---")
+        refs = {(m.get('law'), m.get('article'), m.get('source')) for _, m, _ in hits}
+        for law, art, src in refs:
+            print(f"[{law} Art.{art} – {src}]")
 
 
 # ### Common issues & fixes
