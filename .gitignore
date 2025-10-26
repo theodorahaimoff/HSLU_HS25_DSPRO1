@@ -13,7 +13,7 @@ __pycache__/
 .idea/
 
 # Generated data & indexes
-data/json/
+data/json/*
 store/
 
 # Keep empty folders visible
