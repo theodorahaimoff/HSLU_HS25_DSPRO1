@@ -91,5 +91,4 @@ The application's GUI should now be available under http://localhost:8501/
   ```bash
   jupyter nbconvert --to script notebooks/1_data_preparation.ipynb --output "_1_data_preparation.py" --output-dir=src
   ```
-  > [!NOTE]
-  > Make sure you keep the _ character in front of the output file name, Python has issues when a script begins with a number
+  > ⚠️ Make sure you keep the _ character in front of the output file name, Python has issues when a script begins with a number
