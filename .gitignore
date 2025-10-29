@@ -14,11 +14,13 @@ __pycache__/
 
 # Generated data & indexes
 data/json/*
-store/
+store/*
+src/logs/*
 
 # Keep empty folders visible
 !data/json/.gitkeep
 !store/.gitkeep
+!src/logs/.gitkeep
 
 # OS cruft
 .DS_Store
