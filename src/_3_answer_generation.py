@@ -27,7 +27,7 @@ from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
 # Paths (same as Notebook 2)
-CHROMA_DIR = Path("../store")
+CHROMA_DIR = Path(__file__).resolve().parent.parent / "store"
 CHROMA_COLLECTION = "swiss_private_rental_law"
 
 # Embedding model — must match what you used when indexing

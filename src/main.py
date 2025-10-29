@@ -6,18 +6,26 @@ to provide a simple chat-style GUI for testing and demonstration.
 
 Structure:
 1. Imports and setup
-2. Helper function for response generation
-3. Streamlit UI components
-4. Response display with formatted output
+2. Vector database initialization
+3. Helper function for response generation
+4. Streamlit UI components
+5. Response display
 """
 
 # 1. Imports and setup
 import os
 import streamlit as st
+from pathlib import Path
+import chromadb
 from _3_answer_generation import answer_with_ollama
 
 # Configuration
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3:8b")
+OLLAMA_EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
+
+CHROMA_DIR = Path(__file__).resolve().parent.parent / "store"
+CHROMA_COLLECTION = "swiss_private_rental_law"
+
 TOP_K = 5
 MAX_CTX_CHARS = 8000
 
@@ -30,8 +38,21 @@ st.set_page_config(
 st.title("⚖️ Swiss Rental-Law Assistant")
 st.markdown("Ask questions about **Swiss rental law**.")
 
+# 2. Connect to the persistent Chroma store
+try:
+    client = chromadb.PersistentClient(path=str(CHROMA_DIR))
+    col = client.get_collection(CHROMA_COLLECTION)
+    count = col.count()
+except Exception as e:
+    count = 0
+    print("⚠️ Could not load Chroma collection:", e)
 
-# 2. Helper function
+# DB Debugging information
+st.sidebar.markdown(f"**DB Path:** `{CHROMA_DIR}`")
+st.sidebar.markdown(f"**Collection:** `{CHROMA_COLLECTION}` — {count} entries")
+print(f"Collection: {CHROMA_COLLECTION} | count: {count}")
+
+# 3. Helper function
 def generate_answer(question, perspective, language):
     """
     Retrieve relevant context, query the Ollama model, and return the formatted answer.
@@ -42,11 +63,21 @@ def generate_answer(question, perspective, language):
         language=language,
         k=TOP_K
     )
-    sources = "\n".join([f"- {m.get('law')} Art.{m.get('article')} - {m.get('source')}" for _, m, _ in hits])
+    print("HITS:", hits)
+
+    if not hits:
+        sources = "No sources found."
+    else:
+        sources_list = sorted(set(
+            f"- {m.get('law', '?')} Art.{m.get('article', '?')} - {m.get('source', '?')}"
+            for _, m, _ in hits
+        ))
+        sources = "\n" + "\n".join(sources_list)
+
     return ans, sources
 
 
-# 3. Streamlit UI components
+# 4. Streamlit UI components
 with st.form("query_form"):
     question = st.text_area(
         "Enter your legal question:",
