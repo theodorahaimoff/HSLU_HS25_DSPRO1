@@ -46,7 +46,7 @@ MAX_CTX_CHARS = 8000
 OLLAMA_HOST  = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3:8b")
 
-logging.getLogger("chromadb").setLevel(logging.ERROR)
+logging.getLogger("chromadb").setLevel(logging.DEBUG)
 
 
 # We verify:
@@ -203,7 +203,6 @@ FORMAT STRICTLY:
 2) "**Schritte/Optionen**:" NUMBERED points tailored to the given Perspective.
 3) "**Formulare**:" bullet list of exact official form names if present in CONTEXT, otherwise write "Keine für diesen Fall gefunden."
 5) "**Referenzen**:" bullet list of distinct sources from CONTEXT as [law name Art.X – filename].
-6) Respond ONLY in German (Switzerland) in "du" form and keep exactly this structure and order. Make a new line for every bullet point and don't merge them with semicolons/commas.
 
 CONTEXT:
 {context}
@@ -228,16 +227,92 @@ def answer_with_ollama(question: str, perspective: str, k=TOP_K, model=OLLAMA_MO
         question=f"[Perspective: {perspective}] {question}"
     )
 
+    # 3) Define the structured output schema
+    schema = {
+        "type": "object",
+        "properties": {
+            "answer": {"type": "string"},
+            "steps": {
+                "type": "array",
+                "items": {"type": "string", "maxLength": 180},
+                "minItems": 2,              # ← require more than 1
+                "maxItems": 8,              # ← reasonable upper bound
+                "uniqueItems": False
+            },
+            "forms": {
+                "type": "array",
+                "items": {"type": "string"},
+                "minItems": 0,
+                "maxItems": 10
+            },
+            "references": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "law":     {"type": "string"},
+                        "article": {"type": "string"},
+                        "source":  {"type": "string"}
+                    },
+                    "required": ["law", "article", "source"]
+                }
+            }
+        },
+        "required": ["answer", "references"]
+    }
+
+    # 4) Call Ollama /api/chat with schema-enforced output
     r = requests.post(
-        f"{host}/api/generate",
-        json={"model": model, "prompt": prompt, "stream": False},
+        f"{host}/api/chat",
+        json={
+            "model": model,
+            "messages": [
+                {"role": "system", "content": prompt},
+                {"role": "user", "content":
+                    "Beantworte die Frage gemäss obigen Vorgaben. "
+                    "Fülle die Felder des JSON-Schemas aus. "
+                    "Sprache: Deutsch (Schweiz), Du-Form. "
+                    "Für 'steps' gilt: Gib 2–8 kurze Einträge zurück, "
+                    "jeder Eintrag genau EIN Schritt, EINE Zeile, KEINE Nummerierung oder Zeilenumbrüche. "
+                    "Für 'forms': gib die genauen offiziellen Bezeichnungen aus dem CONTEXT zurück (leer, wenn keine). "
+                    "Gib NUR JSON zurück."
+                },
+            ],
+            "stream": False,
+            "format": schema,
+            "options": {"temperature": 0}
+        },
         timeout=120
     )
+
     if r.status_code != 200:
         return f"[Ollama error {r.status_code}]: {r.text}", hits
 
-    text = r.json().get("response", "").strip()
-    return text, hits
+    # 5) Parse the JSON content returned by /api/chat
+    data = r.json()
+    # content is a JSON string that matches the schema
+    content = data.get("message", {}).get("content", "")
+    try:
+        parsed = json.loads(content) if isinstance(content, str) else content
+    except Exception as e:
+        # If something goes wrong, keep graceful behavior
+        return f"[Parse error]: {e}\nRaw: {content}", [], hits
+
+    answer_text = (parsed.get("answer") or "").strip()
+    steps = parsed.get("steps")
+    if isinstance(steps, str):
+        # model returned a single multiline string; split it
+        steps = [s.strip() for s in steps.split("\n") if s.strip()]
+    steps = steps or []
+
+    forms = parsed.get("forms")
+    if isinstance(forms, str):
+        forms = [f.strip() for f in forms.split("\n") if f.strip()]
+    forms = forms or []
+
+    references = parsed.get("references") or []
+
+    return answer_text, steps, forms, references, hits
 
 
 # Try a realistic query and inspect the sources retrieved.

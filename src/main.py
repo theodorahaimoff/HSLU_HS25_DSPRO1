@@ -59,7 +59,7 @@ logging.basicConfig(
 
 logger = logging.getLogger("SwissRentalLawApp")
 logger.info("Starting Swiss Rental-Law Assistant UI...")
-logging.getLogger("torch").setLevel(logging.ERROR)
+logging.getLogger("torch").setLevel(logging.DEBUG)
 
 # ============================================================
 # 3. Database Connection
@@ -94,24 +94,40 @@ def generate_answer(question: str, perspective: str):
     try:
         logger.info(f"Generiere Antwort | Perspektive: {perspective} |"
                     f"Frage: {question[:80]}...")
-        ans, hits = answer_with_ollama(
+        ans, steps, forms, references, hits = answer_with_ollama(
             question,
             perspective=perspective,
             k=TOP_K
         )
 
-        if not hits:
-            logger.warning("No sources found for query.")
+        if not references:
+            logger.warning("No references found for query.")
             sources = "Keine Quellen gefunden."
         else:
             sources_list = sorted(set(
-                f"- {m.get('law', '?')} Art.{m.get('article', '?')} - {m.get('source', '?')}"
-                for _, m, _ in hits
+                f"- {r.get('law','?')} Art.{r.get('article','?')} - {r.get('source','?')}"
+                for r in references
             ))
             sources = "\n" + "\n".join(sources_list)
-            logger.info(f"Retrieved {len(hits)} source entries.")
+            logger.info(f"Retrieved {len(sources_list)} source entries.")
 
-        return ans, sources
+        if not steps:
+            logger.warning("No steps found for query.")
+            steps_text = "Keine Schritte gefunden."
+        else:
+            steps_list = [f"{i+1}. {s}" for i, s in enumerate(steps)]
+            steps_text = "\n" + "\n".join(steps_list)
+            logger.info(f"Retrieved {len(steps_list)} steps entries.")
+
+        if not forms:
+            logger.warning("No forms found for query.")
+            forms_text = "Keine Formulare gefunden."
+        else:
+            forms_list = [f"- {f}" for f in forms]
+            forms_text = "\n" + "\n".join(forms_list)
+            logger.info(f"Retrieved {len(forms_list)} forms entries.")
+
+        return ans, steps_text, forms_text, sources
 
     except Exception as e:
         logger.exception("Error during answer generation.")
@@ -136,11 +152,16 @@ with st.form("query_form"):
 if submitted and question.strip():
     st.info("Antwort wird generiert, bitte warten...")
     try:
-        ans, sources = generate_answer(question, perspective)
-        st.markdown("### 🧾 **Antwort**")
+        ans, steps, forms, sources = generate_answer(question, perspective)
+        st.markdown("## 💡 **Antwort**")
         st.markdown(ans)
+        st.markdown("#### ✅ **Schritte/Optionen**")
+        st.markdown(steps)
         st.markdown("---")
-        st.markdown("### 📚 **Quellen**")
+        st.markdown("#### 🧾 **Formulare**")
+        st.markdown(forms)
+        st.markdown("---")
+        st.markdown("#### 📚 **Quellen**")
         st.markdown(sources)
     except Exception as e:
         st.error("Ein unerwarteter Fehler ist aufgetreten. Bitte siehe Logdatei für Details.")

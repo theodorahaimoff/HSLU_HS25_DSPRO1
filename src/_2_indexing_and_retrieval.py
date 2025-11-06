@@ -120,6 +120,7 @@ def load_article_jsons(root: Path = DATA_JSON):
                 "meta": {
                     "source": data.get("source"),
                     "law": data.get("law"),
+                    "header": data.get("header"),
                     "article": data.get("article"),
                     "path": fp.as_posix()
                 }
@@ -164,16 +165,17 @@ def build_index(items, batch_size=64):
 
         if len(ids) >= batch_size:
             embs = model.encode(docs, show_progress_bar=False, normalize_embeddings=True).tolist()
-            col.add(ids=ids, documents=docs, metadatas=metas, embeddings=embs)
+            col.upsert(ids=ids, documents=docs, metadatas=metas, embeddings=embs)
             ids, docs, metas = [], [], []
 
     if ids:
         embs = model.encode(docs, show_progress_bar=False, normalize_embeddings=True).tolist()
-        col.add(ids=ids, documents=docs, metadatas=metas, embeddings=embs)
+        col.upsert(ids=ids, documents=docs, metadatas=metas, embeddings=embs)
 
     print("Done. Chunks in collection:", col.count())
     return col
 
+wipe_collection(CHROMA_COLLECTION)
 collection = build_index(articles)
 
 
@@ -217,7 +219,7 @@ def pack_context(retrieved, max_chars=8000, per_source_cap=3):
         seen[key] = seen.get(key, 0) + 1
         if seen[key] > per_source_cap:
             continue
-        stamp = f"[{meta.get('law','?')} Art.{meta.get('article','?')} – {meta.get('source')}]"
+        stamp = f"[{meta.get('law','?')} {meta.get('header','?')} – {meta.get('source')}]"
         block = f"{stamp}\n{doc.strip()}\n\n"
         if total + len(block) > max_chars:
             break
@@ -247,7 +249,7 @@ for q in queries:
     print("Q:", q)
     hits = retrieve(q, k=5)
     for i, (doc, meta, dist) in enumerate(hits, 1):
-        print(f"  {i}. [{meta.get('law')} Art.{meta.get('article')}] {meta.get('source')}  dist={dist:.3f}")
+        print(f"  {i}. [{meta.get('law')} {meta.get('header')}] {meta.get('source')}  dist={dist:.3f}")
     print()
 
 
