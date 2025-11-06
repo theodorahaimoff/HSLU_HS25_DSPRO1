@@ -15,7 +15,7 @@
 
 # Imports & Paths
 
-# In[2]:
+# In[1]:
 
 
 import os, json, requests
@@ -26,11 +26,15 @@ import chromadb, logging
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 
-# Paths (same as Notebook 2)
-CHROMA_DIR = Path(__file__).resolve().parent.parent / "store"
+try:
+    BASE_DIR = Path(__file__).resolve().parent
+except NameError:
+    # Jupyter fallback
+    BASE_DIR = Path(os.getcwd())
+
+CHROMA_DIR = (BASE_DIR.parent / "store").resolve()
 CHROMA_COLLECTION = "swiss_private_rental_law"
 
-# Embedding model — must match what you used when indexing
 EMBED_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
 # Retrieval knobs
@@ -53,7 +57,7 @@ logging.getLogger("chromadb").setLevel(logging.ERROR)
 
 # Chroma & Embedder helpers (same logic as indexing_and_retrieval)
 
-# In[3]:
+# In[2]:
 
 
 # Disable analytics/telemetry
@@ -77,7 +81,7 @@ def embedder():
 
 # Check collection & doc count
 
-# In[4]:
+# In[3]:
 
 
 try:
@@ -89,7 +93,7 @@ except Exception as e:
 
 # Check Ollama is running
 
-# In[5]:
+# In[4]:
 
 
 def check_ollama(host=OLLAMA_HOST, model=OLLAMA_MODEL):
@@ -126,7 +130,7 @@ if not ok:
 
 # Retrieve & (optional) re-rank + pack context
 
-# In[6]:
+# In[5]:
 
 
 def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, collection_name: str = CHROMA_COLLECTION):
@@ -151,17 +155,25 @@ def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, collection_name: st
     return prelim[:k]
 
 def pack_context(retrieved, max_chars=MAX_CTX_CHARS, per_source_cap=3):
+    """
+    Build the context string and an id_map so we can later map used IDs back to metadata.
+    Returns: context_text, id_map (list of dicts with id, law, article, source)
+    """
     ctx, total, seen = [], 0, {}
+
     for doc, meta, dist in retrieved:
         key = (meta.get("law"), meta.get("article"))
         seen[key] = seen.get(key, 0) + 1
         if seen[key] > per_source_cap:
             continue
+
         stamp = f"[{meta.get('law','?')} Art.{meta.get('article','?')} – {meta.get('source')}]"
         block = f"{stamp}\n{doc.strip()}\n\n"
         if total + len(block) > max_chars:
             break
-        ctx.append(block); total += len(block)
+
+        ctx.append(block)
+        total += len(block)
     return "".join(ctx)
 
 
@@ -178,7 +190,7 @@ def pack_context(retrieved, max_chars=MAX_CTX_CHARS, per_source_cap=3):
 # Then **References** as `[LAW Art.X – filename]`.
 # 
 
-# In[62]:
+# In[6]:
 
 
 PROMPT = """You are a Swiss rental-law assistant.
@@ -187,12 +199,11 @@ Do NOT refer to yourself, your role, or your identity in the answer.
 Start directly with the content requested (no introductions).
 
 FORMAT STRICTLY:
-1) "Answer:" Write ONE concise sentence summarizing the answer.
-2) "Steps/Options:" A section with numbered points (1., 2., 3., …) depending on the perspective you're given (Tenant or Landlord).
-3) "Forms:" A list of the forms needed (exact names if present) in bullet points (- item).
-4) "Read next:" A list of articles to read next (e.g., Art. 269 OR; Art. 19 VMWG) in bullet points (- item).
-5) "References:" A list of the distinct sources as [law name Art.X – filename] in bullet points (- item).
-6) Respond ONLY in the specified language and keep exactly this structure and order, do NOT merge multiple steps with semicolons or commas
+1) "**Antwort**:" One concise sentence.
+2) "**Schritte/Optionen**:" NUMBERED points tailored to the given Perspective.
+3) "**Formulare**:" bullet list of exact official form names if present in CONTEXT, otherwise write "Keine für diesen Fall gefunden."
+5) "**Referenzen**:" bullet list of distinct sources from CONTEXT as [law name Art.X – filename].
+6) Respond ONLY in German (Switzerland) in "du" form and keep exactly this structure and order. Make a new line for every bullet point and don't merge them with semicolons/commas.
 
 CONTEXT:
 {context}
@@ -201,14 +212,27 @@ QUESTION:
 {question}
 """
 
-def answer_with_ollama(question: str, perspective: str, language: str, k=TOP_K, model=OLLAMA_MODEL, host=OLLAMA_HOST):
+def answer_with_ollama(question: str, perspective: str, k=TOP_K, model=OLLAMA_MODEL, host=OLLAMA_HOST):
+    """
+    Query Ollama with retrieved context and return:
+    (generated_answer, used_references, hits)
+    """
+
+    # 1. Retrieve documents
     hits = retrieve(question, k=k)
     context = pack_context(hits, max_chars=MAX_CTX_CHARS)
-    prompt = PROMPT.format(context=context, question=f"[Perspective: {perspective}] [Language: {language}] {question}")
 
-    r = requests.post(f"{host}/api/generate",
-                      json={"model": model, "prompt": prompt, "stream": False},
-                      timeout=120)
+    # 2. Generate answer
+    prompt = PROMPT.format(
+        context=context,
+        question=f"[Perspective: {perspective}] {question}"
+    )
+
+    r = requests.post(
+        f"{host}/api/generate",
+        json={"model": model, "prompt": prompt, "stream": False},
+        timeout=120
+    )
     if r.status_code != 200:
         return f"[Ollama error {r.status_code}]: {r.text}", hits
 
@@ -221,16 +245,22 @@ def answer_with_ollama(question: str, perspective: str, language: str, k=TOP_K, 
 
 # Single question test
 
-# In[63]:
+# In[7]:
 
 
 def single_question_test():
     q = "Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?"
-    ans, hits = answer_with_ollama(q, perspective="Tenant", language="German", k=6)
+    ans, hits = answer_with_ollama(q, perspective="Tenant", k=6)
     print("=== ANSWER ===\n", ans, "\n")
     print("=== SOURCES ===")
     for _, m, _ in hits:
         print(f"- {m.get('law')} Art.{m.get('article')} – {m.get('source')}")
+
+
+# In[8]:
+
+
+#single_question_test()
 
 
 # We’ll run several canonical questions to check:
@@ -241,7 +271,7 @@ def single_question_test():
 
 # Batch evaluation
 
-# In[64]:
+# In[9]:
 
 
 def batch_evaluation():
@@ -252,16 +282,22 @@ def batch_evaluation():
         ("Wann sind Mietzinserhöhungen wegen energetischer Verbesserungen zulässig?", "Landlord", "German"),
     ]
 
-    for q, perspective, language in eval_questions:
+    for q, perspective in eval_questions:
         print("\n" + "="*150)
-        print("Q:", q, "| Perspective:", perspective, "| Language: ", language)
+        print("Q:", q, "| Perspective:", perspective)
         print("="*150)
-        ans, hits = answer_with_ollama(q, perspective=perspective, language=language, k=6)
+        ans, hits = answer_with_ollama(q, perspective=perspective, k=6)
         print("\n--- ANSWER ---\n", ans[:2000])  # trim for display
         print("\n--- REFERENCES ---")
         refs = {(m.get('law'), m.get('article'), m.get('source')) for _, m, _ in hits}
         for law, art, src in refs:
             print(f"[{law} Art.{art} – {src}]")
+
+
+# In[10]:
+
+
+#batch_evaluation()
 
 
 # ### Common issues & fixes
