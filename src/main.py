@@ -105,7 +105,7 @@ def generate_answer(question: str, perspective: str):
             sources = "Keine Quellen gefunden."
         else:
             sources_list = sorted(set(
-                f"- {r.get('law','?')} Art.{r.get('article','?')} - {r.get('source','?')}"
+                f"- **{r.get('law','?')}** {r.get('title','?')}"
                 for r in references
             ))
             sources = "\n" + "\n".join(sources_list)
@@ -160,7 +160,6 @@ if submitted and question.strip():
         st.markdown("---")
         st.markdown("#### 🧾 **Formulare**")
         st.markdown(forms)
-        st.markdown("---")
         st.markdown("#### 📚 **Quellen**")
         st.markdown(sources)
     except Exception as e:

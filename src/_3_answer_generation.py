@@ -167,7 +167,7 @@ def pack_context(retrieved, max_chars=MAX_CTX_CHARS, per_source_cap=3):
         if seen[key] > per_source_cap:
             continue
 
-        stamp = f"[{meta.get('law','?')} Art.{meta.get('article','?')} – {meta.get('source')}]"
+        stamp = f"[{meta.get('law','?')} {meta.get('title','?')} – {meta.get('source')}]"
         block = f"{stamp}\n{doc.strip()}\n\n"
         if total + len(block) > max_chars:
             break
@@ -202,7 +202,7 @@ FORMAT STRICTLY:
 1) "**Antwort**:" One concise sentence.
 2) "**Schritte/Optionen**:" NUMBERED points tailored to the given Perspective.
 3) "**Formulare**:" bullet list of exact official form names if present in CONTEXT, otherwise write "Keine für diesen Fall gefunden."
-5) "**Referenzen**:" bullet list of distinct sources from CONTEXT as [law name Art.X – filename].
+5) "**Referenzen**:" bullet list of distinct sources from CONTEXT as [law title – filename].
 
 CONTEXT:
 {context}
@@ -235,8 +235,8 @@ def answer_with_ollama(question: str, perspective: str, k=TOP_K, model=OLLAMA_MO
             "steps": {
                 "type": "array",
                 "items": {"type": "string", "maxLength": 180},
-                "minItems": 2,              # ← require more than 1
-                "maxItems": 8,              # ← reasonable upper bound
+                "minItems": 2,
+                "maxItems": 8,
                 "uniqueItems": False
             },
             "forms": {
@@ -251,10 +251,10 @@ def answer_with_ollama(question: str, perspective: str, k=TOP_K, model=OLLAMA_MO
                     "type": "object",
                     "properties": {
                         "law":     {"type": "string"},
-                        "article": {"type": "string"},
+                        "title": {"type": "string"},
                         "source":  {"type": "string"}
                     },
-                    "required": ["law", "article", "source"]
+                    "required": ["law", "title", "source"]
                 }
             }
         },
@@ -290,18 +290,15 @@ def answer_with_ollama(question: str, perspective: str, k=TOP_K, model=OLLAMA_MO
 
     # 5) Parse the JSON content returned by /api/chat
     data = r.json()
-    # content is a JSON string that matches the schema
     content = data.get("message", {}).get("content", "")
     try:
         parsed = json.loads(content) if isinstance(content, str) else content
     except Exception as e:
-        # If something goes wrong, keep graceful behavior
         return f"[Parse error]: {e}\nRaw: {content}", [], hits
 
     answer_text = (parsed.get("answer") or "").strip()
     steps = parsed.get("steps")
     if isinstance(steps, str):
-        # model returned a single multiline string; split it
         steps = [s.strip() for s in steps.split("\n") if s.strip()]
     steps = steps or []
 

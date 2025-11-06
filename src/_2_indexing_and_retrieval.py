@@ -120,7 +120,7 @@ def load_article_jsons(root: Path = DATA_JSON):
                 "meta": {
                     "source": data.get("source"),
                     "law": data.get("law"),
-                    "header": data.get("header"),
+                    "title": data.get("header"),
                     "article": data.get("article"),
                     "path": fp.as_posix()
                 }
@@ -219,7 +219,7 @@ def pack_context(retrieved, max_chars=8000, per_source_cap=3):
         seen[key] = seen.get(key, 0) + 1
         if seen[key] > per_source_cap:
             continue
-        stamp = f"[{meta.get('law','?')} {meta.get('header','?')} – {meta.get('source')}]"
+        stamp = f"[{meta.get('law','?')} {meta.get('title','?')} – {meta.get('source')}]"
         block = f"{stamp}\n{doc.strip()}\n\n"
         if total + len(block) > max_chars:
             break
@@ -249,7 +249,7 @@ for q in queries:
     print("Q:", q)
     hits = retrieve(q, k=5)
     for i, (doc, meta, dist) in enumerate(hits, 1):
-        print(f"  {i}. [{meta.get('law')} {meta.get('header')}] {meta.get('source')}  dist={dist:.3f}")
+        print(f"  {i}. [{meta.get('law')} {meta.get('title')}] {meta.get('source')}  dist={dist:.3f}")
     print()
 
 
