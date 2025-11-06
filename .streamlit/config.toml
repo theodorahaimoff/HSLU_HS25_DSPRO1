@@ -7,9 +7,6 @@ font = "sans serif"
 borderColor = "lavender"
 headingFontSizes = ["36px", "24px", "20px"]
 
-[logger]
-level = "info"
-
 [server]
 fileWatcherType = "poll"
 

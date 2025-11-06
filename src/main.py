@@ -5,139 +5,140 @@ Swiss Rental-Law Assistant (Streamlit App)
 This app provides an interactive interface for querying Swiss rental law.
 It uses a persistent Chroma vector store for semantic retrieval and a local
 Ollama model for grounded answer generation.
-
-Structure:
-1. Imports and configuration
-2. Logging setup
-3. Database initialization
-4. Answer generation helper
-5. Streamlit UI
 """
 
-import os, re
-import logging
+import os, re, logging
 from pathlib import Path
+from typing import Iterable, List, Tuple
 import streamlit as st
 import chromadb
 from _3_answer_generation import answer_with_ollama
 
 
 # ============================================================
-# 1. Configuration
+# Configuration
 # ============================================================
 
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3:8b")
-OLLAMA_EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
-
-CHROMA_DIR = Path(__file__).resolve().parent.parent / "store"
 CHROMA_COLLECTION = "swiss_private_rental_law"
+CHROMA_DIR = Path(__file__).resolve().parent.parent / "store"
 
 TOP_K = 5
 MAX_CTX_CHARS = 8000
 
-st.set_page_config(page_title="Schweizer Mietrechts-Assistent", page_icon="⚖️", layout="centered")
+st.set_page_config(
+    page_title="Schweizer Mietrechts-Assistent",
+    page_icon="⚖️",
+    layout="centered"
+)
 st.title("⚖️ Schweizer Mietrechts-Assistent")
-st.markdown("Der Schweizer Mietrechts-Assistent ist ein KI-gestütztes Tool, das Fragen zum **Schweizer Mietrecht** beantwortet. Die Antworten basieren auf juristischen Quellen, werden jedoch automatisch generiert und sind **keine** rechtliche Beratung. Sie dienen lediglich als Orientierungshilfe.")
+st.markdown(
+    "Der Schweizer Mietrechts-Assistent ist ein KI-gestütztes Tool, das Fragen zum "
+    "**Schweizer Mietrecht** beantwortet. Die Antworten basieren auf juristischen Quellen, "
+    "werden jedoch automatisch generiert und sind **keine** rechtliche Beratung. "
+    "Sie dienen lediglich als Orientierungshilfe."
+)
 
 # ============================================================
-# 2. Logging Setup
+# Logging
 # ============================================================
 
 LOG_DIR = Path(__file__).resolve().parent / "logs"
 LOG_DIR.mkdir(exist_ok=True)
-
 LOG_FILE = LOG_DIR / "app.log"
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
     handlers=[
         logging.FileHandler(LOG_FILE, encoding="utf-8"),
         logging.StreamHandler()
-    ]
+    ],
+    force=True
 )
 
 logger = logging.getLogger("SwissRentalLawApp")
-logger.setLevel(logging.DEBUG)
-logger.info("Starting Swiss Rental-Law Assistant UI...")
+logger.info("Starting Swiss Rental-Law Assistant...")
 logging.getLogger("torch").setLevel(logging.INFO)
 
 # ============================================================
-# 3. Database Connection
+# Database Connection
 # ============================================================
 
 try:
     client = chromadb.PersistentClient(path=str(CHROMA_DIR))
     col = client.get_collection(CHROMA_COLLECTION)
-    count = col.count()
     logger.info(f"Loaded Chroma collection '{CHROMA_COLLECTION}' "
-                f"from '{CHROMA_DIR}' with {count} entries.")
-except Exception as e:
-    count = 0
+                f"with {col.count()} entries from '{CHROMA_DIR}'.")
+except Exception:
     logger.exception(f"Failed to load Chroma collection '{CHROMA_COLLECTION}'")
     st.sidebar.error("Datenbank konnte nicht geladen werden. Siehe Logdatei für Details.")
 
 
-# Streamlit debugging info
-#st.sidebar.markdown(f"**Database Path:** `{CHROMA_DIR}`")
-#st.sidebar.markdown(f"**Collection:** `{CHROMA_COLLECTION}` — {count} entries")
-
-
 # ============================================================
-# 4. Helper Function: Generate Answer
+# Markdown Helper Functions
 # ============================================================
 
-def generate_answer(question: str, perspective: str):
+def sanitize_step(step: str) -> str:
+    """Remove rare leading artifact ']:' from a step string."""
+    return re.sub(r"^\s*\]:\s*", "", step or "").strip()
+
+def format_numbered(items: Iterable[str]) -> str:
+    """Format an iterable into a numbered Markdown list."""
+    items = [i for i in items if i]
+    return "\n" + "\n".join(f"{i + 1}. {t}" for i, t in enumerate(items)) if items else "Keine Schritte gefunden."
+
+def format_bulleted(items: Iterable[str]) -> str:
+    """Format an iterable into a bulleted Markdown list."""
+    items = [i for i in items if i]
+    return "\n" + "\n".join(f"- {t}" for t in items) if items else ""
+
+# ============================================================
+# Answer Generation
+# ============================================================
+
+def generate_answer(question: str, perspective: str) -> Tuple[str, str, str, str]:
     """
-    Retrieve relevant context, query the Ollama model,
-    and return the formatted answer and sources.
+    Retrieve context, query the Ollama model, and return formatted Markdown sections.
+
+    Returns:
+        (answer_text, steps_md, forms_md, sources_md)
     """
     try:
-        logger.debug(f"Generiere Antwort | Perspektive: {perspective} |"
-                    f"Frage: {question[:80]}...")
-        ans, steps, forms, references, hits = answer_with_ollama(
-            question,
-            perspective=perspective,
-            k=TOP_K
+        logger.debug(f"Generating answer | Perspective: {perspective} | Question: {question[:80]}")
+
+        answer_text, steps, forms, references, _ = answer_with_ollama(
+            question, perspective=perspective, k=TOP_K
         )
 
-        if not references:
-            logger.warning("No references found for query.")
-            sources = "Keine Quellen gefunden."
+        # --- Steps ---
+        if isinstance(steps, str):
+            steps = [s.strip() for s in steps.split("\n") if s.strip()]
+        clean_steps = [sanitize_step(s) for s in (steps or [])]
+        steps_md = format_numbered(clean_steps)
+
+        # --- Forms ---
+        if isinstance(forms, str):
+            forms = [f.strip() for f in forms.split("\n") if f.strip()]
+        forms_md = format_bulleted(forms) if forms else "Keine Formulare gefunden."
+
+        # --- Sources ---
+        if references:
+            dedup = {(r.get("law", "?"), r.get("title", "?")) for r in references}
+            ordered = sorted(dedup, key=lambda x: (x[0], x[1]))
+            sources_md = format_bulleted([f"**{law}** {title}" for law, title in ordered])
         else:
-            sources_list = sorted(set(
-                f"- **{r.get('law','?')}** {r.get('title','?')}"
-                for r in references
-            ))
-            sources = "\n" + "\n".join(sources_list)
-            logger.info(f"Retrieved {len(sources_list)} source entries.")
+            sources_md = "Keine Quellen gefunden."
 
-        if not steps:
-            logger.warning("No steps found for query.")
-            steps_text = "Keine Schritte gefunden."
-        else:
-            clean_steps = [re.sub(r"^\s*\]:\s*", "", s) for s in steps]
-            steps_list = [f"{i+1}. {s}" for i, s in enumerate(clean_steps)]
-            steps_text = "\n" + "\n".join(steps_list)
-            logger.info(f"Retrieved {len(steps_list)} steps entries.")
+        return (answer_text or "").strip(), steps_md, forms_md, sources_md
 
-        if not forms:
-            logger.warning("No forms found for query.")
-            forms_text = "Keine Formulare gefunden."
-        else:
-            forms_list = [f"- {f}" for f in forms]
-            forms_text = "\n" + "\n".join(forms_list)
-            logger.info(f"Retrieved {len(forms_list)} forms entries.")
-
-        return ans, steps_text, forms_text, sources
-
-    except Exception as e:
+    except Exception:
         logger.exception("Error during answer generation.")
         raise
 
 
 # ============================================================
-# 5. Streamlit UI
+# Streamlit UI
 # ============================================================
 
 with st.form("query_form"):
@@ -146,19 +147,15 @@ with st.form("query_form"):
         placeholder="Beispiel: Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?",
         height=100
     )
-    col1, col2 = st.columns(2)
-    with col1:
-        perspective = st.selectbox("Perspektive", ["Mieter:in", "Vermieter:in"])
+    perspective = st.selectbox("Perspektive", ["Mieter:in", "Vermieter:in"])
     submitted = st.form_submit_button("Antwort generieren ⚙️")
 
 if submitted and question.strip():
     with st.spinner("Antwort wird generiert, bitte warten..."):
         try:
             ans, steps, forms, sources = generate_answer(question, perspective)
-            logger.debug(f"Answer: {ans}")
-            logger.debug(f"Steps: {steps}")
-            logger.debug(f"Forms: {forms}")
-            logger.debug(f"Sources: {sources}")
+            logger.debug(f"Answer generated successfully for question: {question[:60]}")
+
             with st.container(border=True):
                 st.header("💡 Antwort")
                 st.markdown(ans)
@@ -168,6 +165,7 @@ if submitted and question.strip():
                 st.markdown(forms)
                 st.subheader("📚 Quellen")
                 st.markdown(sources)
-        except Exception as e:
+
+        except Exception:
             st.error("Ein unerwarteter Fehler ist aufgetreten. Bitte siehe Logdatei für Details.")
             st.stop()
