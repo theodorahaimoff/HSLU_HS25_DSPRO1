@@ -14,7 +14,7 @@ Structure:
 5. Streamlit UI
 """
 
-import os
+import os, re
 import logging
 from pathlib import Path
 import streamlit as st
@@ -49,7 +49,7 @@ LOG_DIR.mkdir(exist_ok=True)
 LOG_FILE = LOG_DIR / "app.log"
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
     handlers=[
         logging.FileHandler(LOG_FILE, encoding="utf-8"),
@@ -58,8 +58,9 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger("SwissRentalLawApp")
+logger.setLevel(logging.DEBUG)
 logger.info("Starting Swiss Rental-Law Assistant UI...")
-logging.getLogger("torch").setLevel(logging.DEBUG)
+logging.getLogger("torch").setLevel(logging.INFO)
 
 # ============================================================
 # 3. Database Connection
@@ -77,7 +78,7 @@ except Exception as e:
     st.sidebar.error("Datenbank konnte nicht geladen werden. Siehe Logdatei für Details.")
 
 
-# Streamlit sidebar info
+# Streamlit debugging info
 #st.sidebar.markdown(f"**Database Path:** `{CHROMA_DIR}`")
 #st.sidebar.markdown(f"**Collection:** `{CHROMA_COLLECTION}` — {count} entries")
 
@@ -92,7 +93,7 @@ def generate_answer(question: str, perspective: str):
     and return the formatted answer and sources.
     """
     try:
-        logger.info(f"Generiere Antwort | Perspektive: {perspective} |"
+        logger.debug(f"Generiere Antwort | Perspektive: {perspective} |"
                     f"Frage: {question[:80]}...")
         ans, steps, forms, references, hits = answer_with_ollama(
             question,
@@ -115,7 +116,8 @@ def generate_answer(question: str, perspective: str):
             logger.warning("No steps found for query.")
             steps_text = "Keine Schritte gefunden."
         else:
-            steps_list = [f"{i+1}. {s}" for i, s in enumerate(steps)]
+            clean_steps = [re.sub(r"^\s*\]:\s*", "", s) for s in steps]
+            steps_list = [f"{i+1}. {s}" for i, s in enumerate(clean_steps)]
             steps_text = "\n" + "\n".join(steps_list)
             logger.info(f"Retrieved {len(steps_list)} steps entries.")
 
@@ -150,17 +152,22 @@ with st.form("query_form"):
     submitted = st.form_submit_button("Antwort generieren ⚙️")
 
 if submitted and question.strip():
-    st.info("Antwort wird generiert, bitte warten...")
-    try:
-        ans, steps, forms, sources = generate_answer(question, perspective)
-        st.markdown("## 💡 **Antwort**")
-        st.markdown(ans)
-        st.markdown("#### ✅ **Schritte/Optionen**")
-        st.markdown(steps)
-        st.markdown("---")
-        st.markdown("#### 🧾 **Formulare**")
-        st.markdown(forms)
-        st.markdown("#### 📚 **Quellen**")
-        st.markdown(sources)
-    except Exception as e:
-        st.error("Ein unerwarteter Fehler ist aufgetreten. Bitte siehe Logdatei für Details.")
+    with st.spinner("Antwort wird generiert, bitte warten..."):
+        try:
+            ans, steps, forms, sources = generate_answer(question, perspective)
+            logger.debug(f"Answer: {ans}")
+            logger.debug(f"Steps: {steps}")
+            logger.debug(f"Forms: {forms}")
+            logger.debug(f"Sources: {sources}")
+            with st.container(border=True):
+                st.header("💡 Antwort")
+                st.markdown(ans)
+                st.subheader("✅ Schritte/Optionen")
+                st.markdown(steps)
+                st.subheader("📄 Formulare")
+                st.markdown(forms)
+                st.subheader("📚 Quellen")
+                st.markdown(sources)
+        except Exception as e:
+            st.error("Ein unerwarteter Fehler ist aufgetreten. Bitte siehe Logdatei für Details.")
+            st.stop()

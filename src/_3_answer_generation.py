@@ -224,7 +224,7 @@ def answer_with_ollama(question: str, perspective: str, k=TOP_K, model=OLLAMA_MO
     # 2. Generate answer
     prompt = PROMPT.format(
         context=context,
-        question=f"[Perspective: {perspective}] {question}"
+        question=f"Perspective: {perspective}, Question: {question}"
     )
 
     # 3) Define the structured output schema
@@ -297,15 +297,13 @@ def answer_with_ollama(question: str, perspective: str, k=TOP_K, model=OLLAMA_MO
         return f"[Parse error]: {e}\nRaw: {content}", [], hits
 
     answer_text = (parsed.get("answer") or "").strip()
-    steps = parsed.get("steps")
+    steps = parsed.get("steps") or []
     if isinstance(steps, str):
         steps = [s.strip() for s in steps.split("\n") if s.strip()]
-    steps = steps or []
 
-    forms = parsed.get("forms")
+    forms = parsed.get("forms") or []
     if isinstance(forms, str):
         forms = [f.strip() for f in forms.split("\n") if f.strip()]
-    forms = forms or []
 
     references = parsed.get("references") or []
 

@@ -5,6 +5,7 @@ langchain-text-splitters==0.3.2
 tqdm==4.67.1
 requests>=2.32.3
 python-dotenv>=1.0.1
+streamlit>=1.40.2
 
 # Optional (reranking)
 transformers>=4.45.1
