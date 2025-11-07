@@ -7,13 +7,9 @@ It uses a persistent Chroma vector store for semantic retrieval and the
 Hugging Face Inference API for grounded answer generation.
 """
 
-import os, re, logging, json
+import re
 
-from pathlib import Path
-from typing import Iterable, List, Tuple
-import streamlit as st
-import chromadb
-from chromadb.config import Settings
+from typing import Iterable, Tuple
 from backend import *
 
 # ============================================================
