@@ -192,7 +192,7 @@ Start directly with the content requested (no introductions).
 Return STRICTLY a JSON object with this shape, no extra keys, no markdown fences, no numbering:
 
 "answer": "one concise sentence",\\n'
-"steps": ["one unique action per entry for the given perspective, no numbering, 2-6 items"],\\n'
+"steps": ["one unique action per entry for the given perspective, no numbering, 2-4 items"],\\n'
 "forms": ["exact official names from CONTEXT, or empty array"],\\n'
 "references": [{{"law": "OR", "title": "Art.x, Article Title", "source": "OR.pdf"}}]\\n'
 
