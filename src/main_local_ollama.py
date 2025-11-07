@@ -3,22 +3,23 @@ Swiss Rental-Law Assistant (Streamlit App)
 ------------------------------------------
 
 This app provides an interactive interface for querying Swiss rental law.
-It uses a persistent Chroma vector store for semantic retrieval and the
-Hugging Face Inference API for grounded answer generation.
+It uses a persistent Chroma vector store for semantic retrieval and a local
+Ollama model for grounded answer generation.
 """
 
-import os, re, logging
+import os, re, logging, requests
 from pathlib import Path
 from typing import Iterable, List, Tuple
 import streamlit as st
 import chromadb
-from _3_answer_generation import answer_with_openai
+from _3_answer_generation_local_ollama import answer_with_ollama
 
 
 # ============================================================
 # Configuration
 # ============================================================
 
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3:8b")
 CHROMA_COLLECTION = "swiss_private_rental_law"
 CHROMA_DIR = Path(__file__).resolve().parent.parent / "store"
 
@@ -98,7 +99,7 @@ def format_bulleted(items: Iterable[str]) -> str:
 
 def generate_answer(question: str, perspective: str) -> Tuple[str, str, str, str]:
     """
-    Retrieve context, query the Hugging Face model, and return formatted Markdown sections.
+    Retrieve context, query the Ollama model, and return formatted Markdown sections.
 
     Returns:
         (answer_text, steps_md, forms_md, sources_md)
@@ -106,7 +107,7 @@ def generate_answer(question: str, perspective: str) -> Tuple[str, str, str, str
     try:
         logger.debug(f"Generating answer | Perspective: {perspective} | Question: {question[:80]}")
 
-        answer_text, steps, forms, references, _ = answer_with_openai(
+        answer_text, steps, forms, references, _ = answer_with_ollama(
             question, perspective=perspective, k=TOP_K
         )
 

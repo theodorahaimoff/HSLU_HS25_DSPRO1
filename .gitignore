@@ -17,6 +17,9 @@ data/json/*
 store/*
 src/logs/*
 
+# Secrets
+.streamlit/secrets.toml
+
 # Keep empty folders visible
 !data/json/.gitkeep
 !store/.gitkeep

@@ -24,13 +24,13 @@ rental_law_rag/
 │   ├── 0_installations.ipynb
 │   ├── 1_data_preparation.ipynb
 │   ├── 2_indexing_and_retrieval.ipynb
-│   └── 3_answer_generation.ipynb
+│   └── 3_answer_generation_local_ollama.ipynb
 └── src/
     ├── _0_installations.py
     ├── _1_data_preparation.py
     ├── _2_indexing_and_retrieval.py
     ├── _3_answer_generation.py
-    └── main.py
+    └── main_local_ollama.py
 ```
 
 
@@ -76,7 +76,7 @@ Run **Notebook 3** (`3_answering_and_evaluation.ipynb`)
 ### 6️⃣ Run Streamlit app
 Run the following command on your terminal
 ```bash
-streamlit run src/main.py
+streamlit run src/main_local_ollama.py
 ```
 The application's GUI should now be available under http://localhost:8501/
 

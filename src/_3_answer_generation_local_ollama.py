@@ -18,33 +18,11 @@
 # In[1]:
 
 
-import os, re, json, logging
+import os, json, requests
 from pathlib import Path
 
-import chromadb
+import chromadb, logging
 from sentence_transformers import SentenceTransformer
-from openai import OpenAI
-from jsonschema import validate, ValidationError
-
-try:
-    import streamlit as st
-    _SECRETS = getattr(st, "secrets", {})
-except Exception:
-    _SECRETS = {}
-
-OAI_TOKEN = (
-    _SECRETS.get("env", {}).get("OAI_TOKEN")
-    or os.getenv("OAI_TOKEN")
-    or ""
-)
-
-if not OAI_TOKEN:
-    raise EnvironmentError(
-        "OPENAI token not found. Set OAI_TOKEN in env or Streamlit secrets."
-    )
-
-OAI_CLIENT = OpenAI(api_key=OAI_TOKEN)
-OAI_MODEL = "gpt-4o-mini"
 
 try:
     BASE_DIR = Path(__file__).resolve().parent
@@ -62,11 +40,11 @@ TOP_K  = 5
 PRE_K  = 20
 MAX_CTX_CHARS = 8000
 
+# Ollama local settings
+OLLAMA_HOST  = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3:8b")
 
 logging.getLogger("chromadb").setLevel(logging.DEBUG)
-# Disable analytics/telemetry
-os.environ["CHROMA_TELEMETRY_ENABLED"] = "false"
-os.environ["POSTHOG_DISABLED"] = "true"
 
 
 # We verify:
@@ -79,6 +57,10 @@ os.environ["POSTHOG_DISABLED"] = "true"
 
 # In[2]:
 
+
+# Disable analytics/telemetry
+os.environ["CHROMA_TELEMETRY_ENABLED"] = "false"
+os.environ["POSTHOG_DISABLED"] = "true"
 
 def get_client():
     return chromadb.PersistentClient(path=str(CHROMA_DIR))
@@ -107,6 +89,37 @@ if __name__ == "__main__":
         print("Collection:", CHROMA_COLLECTION, "| count:", col.count())
     except Exception as e:
         print("Chroma check failed:", e)
+
+
+# Check Ollama is running
+
+# In[4]:
+
+
+def check_ollama(host=OLLAMA_HOST, model=OLLAMA_MODEL):
+    try:
+        r = requests.get(host, timeout=5)
+        ok_base = r.status_code in (200, 404)  # / returns 404 often, that's fine if host reachable
+    except Exception as e:
+        return False, f"Host not reachable: {e}"
+
+    try:
+        # quick no-op generate to ensure model is present
+        test = requests.post(
+            f"{host}/api/generate",
+            json={"model": model, "prompt": "OK", "stream": False},
+            timeout=20
+        )
+        ok_model = (test.status_code == 200)
+        return ok_model, None if ok_model else f"Model call failed: {test.text[:200]}"
+    except Exception as e:
+        return False, f"Model not available: {e}"
+
+ok, err = check_ollama()
+print("Ollama ready:", ok, "| model:", OLLAMA_MODEL)
+if not ok:
+    print("Hint: Run `ollama pull llama3:8b` and ensure Ollama is running.")
+    if err: print("Details:", err)
 
 
 # We reuse a lightweight retrieval pipeline:
@@ -142,7 +155,10 @@ def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, collection_name: st
     return prelim[:k]
 
 def pack_context(retrieved, max_chars=MAX_CTX_CHARS, per_source_cap=3):
-    """Build context string from retrieved docs."""
+    """
+    Build the context string and an id_map so we can later map used IDs back to metadata.
+    Returns: context_text, id_map (list of dicts with id, law, article, source)
+    """
     ctx, total, seen = [], 0, {}
 
     for doc, meta, dist in retrieved:
@@ -177,18 +193,16 @@ def pack_context(retrieved, max_chars=MAX_CTX_CHARS, per_source_cap=3):
 # In[6]:
 
 
-# --- Prompt (escaped braces; single {question}) ---
 PROMPT = """You are a Swiss rental-law assistant.
 Answer ONLY from the CONTEXT. If insufficient, say so.
-Write in German (Switzerland) in strictly 'Du'-Form.
 Do NOT refer to yourself, your role, or your identity in the answer.
 Start directly with the content requested (no introductions).
-Return STRICTLY a JSON object with this shape, no extra keys, no markdown fences, no numbering:
 
-"answer": "one concise sentence",\\n'
-"steps": ["one unique action per entry for the given perspective, no numbering, 2-8 items"],\\n'
-"forms": ["exact official names from CONTEXT, or empty array"],\\n'
-"references": [{{"law": "OR", "title": "Art.x, Article Title", "source": "OR.pdf"}}]\\n'
+FORMAT STRICTLY:
+1) "**Antwort**:" One concise sentence.
+2) "**Schritte/Optionen**:" NUMBERED points tailored to the given Perspective.
+3) "**Formulare**:" bullet list of exact official form names if present in CONTEXT, otherwise write "Keine für diesen Fall gefunden."
+5) "**Referenzen**:" bullet list of distinct sources from CONTEXT as [law title – filename].
 
 CONTEXT:
 {context}
@@ -197,60 +211,62 @@ QUESTION:
 {question}
 """
 
-# --- JSON schema for validation ---
-schema = {
-    "type": "object",
-    "properties": {
-        "answer": {"type": "string"},
-        "steps": {
-            "type": "array",
-            "items": {"type": "string", "maxLength": 180},
-            "minItems": 2,
-            "maxItems": 8,
-            "uniqueItems": False
-        },
-        "forms": {
-            "type": "array",
-            "items": {"type": "string"},
-            "minItems": 0,
-            "maxItems": 10
-        },
-        "references": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "law":   {"type": "string"},
-                    "title": {"type": "string"},
-                    "source":{"type": "string"}
-                },
-                "required": ["law", "title", "source"]
-            }
-        }
-    },
-    "required": ["answer", "references"]
-}
+def answer_with_ollama(question: str, perspective: str, k=TOP_K, model=OLLAMA_MODEL, host=OLLAMA_HOST):
+    """
+    Query Ollama with retrieved context and return:
+    (generated_answer, used_references, hits)
+    """
 
-def answer_with_openai(question: str, perspective: str, k=TOP_K, model=OAI_MODEL, max_chars=MAX_CTX_CHARS):
-    """
-    Query OpenAI with retrieved context and return:
-    (generated_answer, steps, forms, references, hits)
-    """
-    # 1) Retrieve documents
+    # 1. Retrieve documents
     hits = retrieve(question, k=k)
-    context = pack_context(hits, max_chars=max_chars)
+    context = pack_context(hits, max_chars=MAX_CTX_CHARS)
 
-    # 2) Build prompt
+    # 2. Generate answer
     prompt = PROMPT.format(
         context=context,
         question=f"Perspective: {perspective}, Question: {question}"
     )
 
-    # 3) Call Chat Completions in JSON mode (SDK 2.7.1)
-    try:
-        resp = OAI_CLIENT.chat.completions.create(
-            model=model,
-            messages=[
+    # 3) Define the structured output schema
+    schema = {
+        "type": "object",
+        "properties": {
+            "answer": {"type": "string"},
+            "steps": {
+                "type": "array",
+                "items": {"type": "string", "maxLength": 180},
+                "minItems": 2,
+                "maxItems": 8,
+                "uniqueItems": False
+            },
+            "forms": {
+                "type": "array",
+                "items": {"type": "string"},
+                "minItems": 0,
+                "maxItems": 10
+            },
+            "references": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "law":     {"type": "string"},
+                        "title": {"type": "string"},
+                        "source":  {"type": "string"}
+                    },
+                    "required": ["law", "title", "source"]
+                }
+            }
+        },
+        "required": ["answer", "references"]
+    }
+
+    # 4) Call Ollama /api/chat with schema-enforced output
+    r = requests.post(
+        f"{host}/api/chat",
+        json={
+            "model": model,
+            "messages": [
                 {"role": "system", "content": prompt},
                 {"role": "user", "content":
                     "Beantworte die Frage gemäss obigen Vorgaben. "
@@ -262,28 +278,25 @@ def answer_with_openai(question: str, perspective: str, k=TOP_K, model=OAI_MODEL
                     "Gib NUR JSON zurück."
                 },
             ],
-            temperature=0,
-            response_format={"type": "json_object"}
-        )
-    except Exception as e:
-        return f"[OpenAI error]: {e}", [], [], [], hits
+            "stream": False,
+            "format": schema,
+            "options": {"temperature": 0}
+        },
+        timeout=120
+    )
 
-    # 4) Parse JSON
-    content = resp.choices[0].message.content or ""
+    if r.status_code != 200:
+        return f"[Ollama error {r.status_code}]: {r.text}", hits
+
+    # 5) Parse the JSON content returned by /api/chat
+    data = r.json()
+    content = data.get("message", {}).get("content", "")
     try:
-        parsed = json.loads(content)
+        parsed = json.loads(content) if isinstance(content, str) else content
     except Exception as e:
-        return f"[Parse error]: {e}\nRaw: {content}", [], [], [], hits
+        return f"[Parse error]: {e}\nRaw: {content}", [], hits
 
-    # 5) Validate schema
-    try:
-        validate(instance=parsed, schema=schema)
-    except ValidationError as ve:
-        return f"[Schema validation error]: {ve.message}\nRaw: {parsed}", [], [], [], hits
-
-    # 6) Normalize & return
     answer_text = (parsed.get("answer") or "").strip()
-
     steps = parsed.get("steps") or []
     if isinstance(steps, str):
         steps = [s.strip() for s in steps.split("\n") if s.strip()]
@@ -307,11 +320,11 @@ def answer_with_openai(question: str, perspective: str, k=TOP_K, model=OAI_MODEL
 
 def single_question_test():
     q = "Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?"
-    ans, steps, forms, references, hits = answer_with_openai(q, perspective="Mieter:in", k=6)
+    ans, hits = answer_with_ollama(q, perspective="Tenant", k=6)
     print("=== ANSWER ===\n", ans, "\n")
-    print("=== STEPS ===\n", steps, "\n")
-    print("=== FORMS ===\n", forms, "\n")
-    print("=== SOURCES ===\n", references, "\n")
+    print("=== SOURCES ===")
+    for _, m, _ in hits:
+        print(f"- {m.get('law')} Art.{m.get('article')} – {m.get('source')}")
 
 
 # In[8]:
@@ -333,21 +346,22 @@ def single_question_test():
 
 def batch_evaluation():
     eval_questions = [
-        ("Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?", "Mieter:in"),
-        ("Welche Rechte habe ich bei Mängeln in der Wohnung?", "Mieter:in"),
-        ("Darf der Vermieter während laufendem Schlichtungsverfahren kündigen?", "Vermieter:in"),
-        ("Wann sind Mietzinserhöhungen wegen energetischer Verbesserungen zulässig?", "Vermieter:in"),
+        ("Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?", "Tenant", "English"),
+        ("Welche Rechte habe ich bei Mängeln in der Wohnung?", "Tenant", "German"),
+        ("Darf der Vermieter während laufendem Schlichtungsverfahren kündigen?", "Landlord", "English"),
+        ("Wann sind Mietzinserhöhungen wegen energetischer Verbesserungen zulässig?", "Landlord", "German"),
     ]
 
     for q, perspective in eval_questions:
         print("\n" + "="*150)
         print("Q:", q, "| Perspective:", perspective)
         print("="*150)
-        ans, steps, forms, references, hits = answer_with_openai(q, perspective=perspective, k=6)
+        ans, hits = answer_with_ollama(q, perspective=perspective, k=6)
         print("\n--- ANSWER ---\n", ans[:2000])  # trim for display
-        print("=== STEPS ===\n", steps[:2000])
-        print("=== FORMS ===\n", forms)
-        print("=== SOURCES ===\n", references)
+        print("\n--- REFERENCES ---")
+        refs = {(m.get('law'), m.get('article'), m.get('source')) for _, m, _ in hits}
+        for law, art, src in refs:
+            print(f"[{law} Art.{art} – {src}]")
 
 
 # In[10]:

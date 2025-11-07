@@ -1,4 +1,4 @@
-chromadb==0.5.18
+chromadb==0.5.5
 pymupdf==1.24.10
 sentence-transformers==3.2.1
 langchain-text-splitters==0.3.2
@@ -6,6 +6,8 @@ tqdm==4.67.1
 requests>=2.32.3
 python-dotenv>=1.0.1
 streamlit>=1.40.2
+openai==2.7.1
+jsonschema==4.25.1
 
 # Optional (reranking)
 transformers>=4.45.1
