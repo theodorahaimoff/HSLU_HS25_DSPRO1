@@ -4,6 +4,7 @@
 
 Retrieval-Augmented QA system for Swiss rental law based on Obligationenrecht (OR), Verordnung über die Miete und Pacht von Wohn- und Geschäftsräumen (VMWG), and Strafgesetzbuch (StGB).
 It builds a persistent ChromaDB index using OpenAI embeddings and generates answers via the GPT-4o-mini model.
+
 ---
 
 ## 🗂️ Repo Layout
@@ -54,7 +55,9 @@ Add your OpenAI API key to .streamlit/secrets.toml:
 [env]
 OAI_TOKEN = "sk-s..."
 ```
+
 ---
+
 ## 🧩 Usage
 
 ### 1️⃣ Add PDFs
@@ -92,7 +95,9 @@ Push to GitHub. \
 The app automatically builds its own Chroma index if missing. \
 > 👉 **Note** \
 > Add your `OAI_TOKEN` to Streamlit Secrets.
+
 ---
+
 ## 🤝 Notes for Collaborators
 - Logs and JSON files are **git-ignored** — they're rebuilt locally.
 - Secrets are **git-ignored** due to security concerns.
