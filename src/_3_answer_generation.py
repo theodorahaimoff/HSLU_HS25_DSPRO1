@@ -148,7 +148,7 @@ def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, collection_name: st
     return prelim[:k]
 
 def pack_context(retrieved, max_chars=MAX_CTX_CHARS, per_source_cap=3):
-    """Build context string from retrieved docs."""
+    #Build context string from retrieved docs.
     ctx, total, seen = [], 0, {}
 
     for doc, meta, dist in retrieved:
