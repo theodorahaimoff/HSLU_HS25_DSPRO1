@@ -8,11 +8,17 @@ import os, json, logging, re
 from pathlib import Path
 from typing import Iterable, Tuple
 import streamlit as st
-import chromadb
-from chromadb.config import Settings
 from openai import OpenAI
 from jsonschema import validate
 
+try:
+    import chromadb
+    from chromadb.config import Settings
+except Exception as e:
+    st.sidebar.error(
+        "ChromaDB couldn’t be imported." + str(e)
+    )
+    raise
 
 # Retrieval knobs
 TOP_K  = 5
