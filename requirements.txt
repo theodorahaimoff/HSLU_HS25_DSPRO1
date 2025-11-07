@@ -1,9 +1,9 @@
 streamlit
 openai==2.7.1
 chromadb
-pymupdf==1.24.10
-langchain-text-splitters==0.3.2
-tqdm==4.67.1
+jsonschema
 requests>=2.32.3
 python-dotenv>=1.0.1
-jsonschema
+tqdm==4.67.1
+langchain-text-splitters==0.3.2
+pymupdf==1.24.10

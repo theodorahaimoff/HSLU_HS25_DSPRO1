@@ -18,14 +18,15 @@
 
 # ⚙️ Imports & Paths
 
-# In[9]:
+# In[15]:
 
 
-import os, json, hashlib
+import os, time, json, hashlib
 from pathlib import Path
+from typing import List
 
 import chromadb, logging
-from sentence_transformers import SentenceTransformer
+from openai import OpenAI
 from tqdm import tqdm
 
 # Paths (keep consistent with Notebook 1)
@@ -34,16 +35,80 @@ CHROMA_DIR = Path("../store")
 CHROMA_DIR.mkdir(parents=True, exist_ok=True)
 
 # Collection name
-CHROMA_COLLECTION = "swiss_private_rental_law"
-
-# Embedding model (fast + solid)
-EMBED_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+CHROMA_COLLECTION = "text-embedding-3-small"
 
 # Retrieval knobs
 TOP_K  = 5     # final results returned
 PRE_K  = 20    # prefetch for (optional) re-ranking
 
 logging.getLogger("chromadb").setLevel(logging.ERROR)
+os.environ["CHROMA_TELEMETRY_ENABLED"] = "false"
+os.environ["POSTHOG_DISABLED"] = "true"
+
+
+# In[16]:
+
+
+try:
+    import tomllib  # Python ≥3.11
+except ModuleNotFoundError:
+    import tomli as tomllib
+
+def load_oai_token() -> str:
+    """
+    Loads the OpenAI API token from:
+    1) streamlit.secrets (if available)
+    2) .streamlit/secrets.toml (searched from cwd upwards)
+    3) Environment variables (OAI_TOKEN / OPENAI_API_KEY)
+    Works in both notebooks and Streamlit apps.
+    """
+    # --- 1) Try Streamlit secrets ---
+    try:
+        import streamlit as st
+        token = dict(st.secrets).get("env", {}).get("OAI_TOKEN")
+        if token:
+            return token
+    except Exception:
+        pass
+
+    # --- 2) Try loading secrets.toml manually ---
+    # In Jupyter, we don’t have __file__, so we start from cwd.
+    cwd = Path.cwd()
+    candidates = [
+        cwd / ".streamlit" / "secrets.toml",
+        cwd.parent / ".streamlit" / "secrets.toml",
+        cwd.parent.parent / ".streamlit" / "secrets.toml",
+    ]
+
+    for p in candidates:
+        if p.exists():
+            try:
+                with p.open("rb") as f:
+                    data = tomllib.load(f)
+                token = data.get("env", {}).get("OAI_TOKEN")
+                if token:
+                    return token
+            except Exception:
+                pass
+
+    # --- 3) Fallback to environment vars ---
+    token = os.getenv("OAI_TOKEN") or os.getenv("OPENAI_API_KEY") or ""
+    return token
+
+def mask(t: str) -> str:
+    return t[:4] + "…" + t[-4:] if t and len(t) > 12 else "(unset)"
+
+OAI_TOKEN = load_oai_token()
+if not OAI_TOKEN:
+    raise EnvironmentError(
+        "OpenAI key not found. Put it in `.streamlit/secrets.toml` under [env].OAI_TOKEN "
+        "or set OAI_TOKEN/OPENAI_API_KEY in your environment."
+    )
+
+print("✅ OpenAI token loaded:", mask(OAI_TOKEN))
+
+OAI = OpenAI(api_key=OAI_TOKEN)
+EMBED_MODEL_NAME = "text-embedding-3-small"
 
 
 # ## Design Choices
@@ -56,12 +121,8 @@ logging.getLogger("chromadb").setLevel(logging.ERROR)
 
 # 🧱 Chroma helpers
 
-# In[10]:
+# In[17]:
 
-
-# Disable analytics / telemetry
-os.environ["CHROMA_TELEMETRY_ENABLED"] = "false"
-os.environ["POSTHOG_DISABLED"] = "true"
 
 def get_client():
     return chromadb.PersistentClient(path=str(CHROMA_DIR))
@@ -85,21 +146,38 @@ def wipe_collection(name=CHROMA_COLLECTION):
 
 # 🧠 Embedder init
 
-# In[11]:
+# In[18]:
 
 
-_embedder = None
+def embed_batch(texts: List[str], *, model: str = EMBED_MODEL_NAME, retries: int = 5) -> List[List[float]]:
+    """
+    Embed a batch of texts with OpenAI, with basic retries on 429/5xx.
+    Hard-fail on 401 (bad/missing key).
+    """
+    delay = 1.0
+    for attempt in range(retries):
+        try:
+            resp = OAI.embeddings.create(model=model, input=texts)
+            return [d.embedding for d in resp.data]
+        except Exception as e:
+            # Inspect common API errors
+            msg = str(e)
+            if "401" in msg or "AuthenticationError" in msg:
+                raise  # bad/missing key – don't retry
+            if any(code in msg for code in ("429", "500", "502", "503", "504")) and attempt < retries - 1:
+                time.sleep(delay)
+                delay = min(delay * 2, 10)
+                continue
+            # Not retriable or out of retries
+            raise
 
-def embedder():
-    global _embedder
-    if _embedder is None:
-        _embedder = SentenceTransformer(EMBED_MODEL_NAME)
-    return _embedder
+def embed_query(text: str) -> List[float]:
+    return embed_batch([text])[0]
 
 
 # 📥 Load JSON files
 
-# In[12]:
+# In[19]:
 
 
 def load_article_jsons(root: Path = DATA_JSON):
@@ -144,30 +222,35 @@ if articles:
 
 # 🏗️ Build/Update index
 
-# In[13]:
+# In[20]:
 
 
-def build_index(items, batch_size=64):
+def build_index(items, batch_size=96, sleep_s=0.0):
+    """
+    - Batches texts, calls OpenAI embeddings
+    - Upserts (ids, documents, metadatas, embeddings) into Chroma
+    """
     client = get_client()
     col = get_collection(client)
     print("Collection:", CHROMA_COLLECTION, "| existing docs:", col.count())
 
-    ids, docs, metas = [], [], []
-    model = embedder()
+    ids_buf, docs_buf, metas_buf = [], [], []
 
     for it in tqdm(items, desc="Indexing"):
-        ids.append(it["id"])
-        docs.append(it["text"])
-        metas.append(it["meta"])
+        ids_buf.append(it["id"])
+        docs_buf.append(it["text"])
+        metas_buf.append(it["meta"])
 
-        if len(ids) >= batch_size:
-            embs = model.encode(docs, show_progress_bar=False, normalize_embeddings=True).tolist()
-            col.upsert(ids=ids, documents=docs, metadatas=metas, embeddings=embs)
-            ids, docs, metas = [], [], []
+        if len(ids_buf) >= batch_size:
+            embs = embed_batch(docs_buf)
+            col.upsert(ids=ids_buf, documents=docs_buf, metadatas=metas_buf, embeddings=embs)
+            ids_buf, docs_buf, metas_buf = [], [], []
+            if sleep_s:
+                time.sleep(sleep_s)
 
-    if ids:
-        embs = model.encode(docs, show_progress_bar=False, normalize_embeddings=True).tolist()
-        col.upsert(ids=ids, documents=docs, metadatas=metas, embeddings=embs)
+    if ids_buf:
+        embs = embed_batch(docs_buf)
+        col.upsert(ids=ids_buf, documents=docs_buf, metadatas=metas_buf, embeddings=embs)
 
     print("Done. Chunks in collection:", col.count())
     return col
@@ -183,29 +266,25 @@ collection = build_index(articles)
 
 # 🧰 Retrieve & (optional) Re-rank
 
-# In[14]:
+# In[21]:
 
 
 def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, collection_name: str = CHROMA_COLLECTION):
     col = get_collection()
-    q_emb = embedder().encode([query], normalize_embeddings=True).tolist()[0]
-    res = col.query(query_embeddings=[q_emb], n_results=k_pre, include=['documents','metadatas','distances'])
+    q_emb = embed_query(query)
+    res = col.query(
+        query_embeddings=[q_emb],
+        n_results=k_pre,
+        include=['documents','metadatas','distances']
+    )
 
     docs  = res.get('documents', [[]])[0]
     metas = res.get('metadatas', [[]])[0]
     dists = res.get('distances', [[]])[0]
     prelim = list(zip(docs, metas, dists))
 
-    # Optional cross-encoder re-rank: uncomment if you installed transformers/torch
-    try:
-        from sentence_transformers import CrossEncoder
-        rnk = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
-        scores = rnk.predict([(query, d) for d,_,_ in prelim]).tolist()
-        prelim = [p for p,_ in sorted(zip(prelim, scores), key=lambda x: x[1], reverse=True)]
-    except Exception:
-        # Fallback: sort by distance asc (smaller = closer)
-        prelim = sorted(prelim, key=lambda x: x[2])
-
+    # distance ascending (smaller = closer)
+    prelim = sorted(prelim, key=lambda x: x[2])
     return prelim[:k]
 
 def pack_context(retrieved, max_chars=8000, per_source_cap=3):
@@ -232,7 +311,7 @@ def pack_context(retrieved, max_chars=8000, per_source_cap=3):
 # - metadata is present for citations.
 # 
 
-# In[15]:
+# In[22]:
 
 
 queries = [
@@ -251,7 +330,7 @@ for q in queries:
 
 # 👀  Inspect one context block
 
-# In[16]:
+# In[23]:
 
 
 sample_q = "Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?"

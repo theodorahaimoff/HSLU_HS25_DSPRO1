@@ -24,8 +24,7 @@ from pathlib import Path
 import chromadb
 from openai import OpenAI
 from jsonschema import validate, ValidationError
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
+
 try:
     import streamlit as st  # noqa
 except Exception:
@@ -62,7 +61,7 @@ except NameError:
 CHROMA_DIR = (BASE_DIR.parent / "store").resolve()
 CHROMA_COLLECTION = "swiss_private_rental_law"
 
-EMBED_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+EMBED_MODEL_NAME = "text-embedding-3-small"
 
 # Retrieval knobs
 TOP_K  = 5
@@ -94,13 +93,12 @@ def get_collection(name=CHROMA_COLLECTION):
     client = get_client()
     return client.get_collection(name)
 
-_embedder = None
-def embedder():
-    global _embedder
-    if _embedder is None:
-        from sentence_transformers import SentenceTransformer
-        _embedder = SentenceTransformer(EMBED_MODEL_NAME)
-    return _embedder
+def embed_query(text: str) -> list[float]:
+    resp = OAI_CLIENT.embeddings.create(
+        model=EMBED_MODEL_NAME,
+        input=text
+    )
+    return resp.data[0].embedding
 
 
 # Check collection & doc count
@@ -125,32 +123,28 @@ if __name__ == "__main__":
 
 # Retrieve & (optional) re-rank + pack context
 
-# In[5]:
+# In[4]:
 
-
-ENABLE_RERANK = os.getenv("ENABLE_RERANK", "0") == "1"
 
 def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, collection_name: str = CHROMA_COLLECTION):
     col = get_collection(collection_name)
-    q_emb = embedder().encode([query], normalize_embeddings=True).tolist()[0]
-    res = col.query(query_embeddings=[q_emb], n_results=k_pre, include=['documents','metadatas','distances'])
+
+    # 1) embed the query with OpenAI
+    q_emb = embed_query(query)
+
+    # 2) query Chroma (no reranker, distance sort)
+    res = col.query(
+        query_embeddings=[q_emb],
+        n_results=k_pre,
+        include=['documents', 'metadatas', 'distances']
+    )
 
     docs  = res.get('documents', [[]])[0]
     metas = res.get('metadatas', [[]])[0]
     dists = res.get('distances', [[]])[0]
+
     prelim = list(zip(docs, metas, dists))
-
-    if ENABLE_RERANK:
-        try:
-            from sentence_transformers import CrossEncoder
-            reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
-            scores = reranker.predict([(query, d) for d,_,_ in prelim]).tolist()
-            prelim = [p for p,_ in sorted(zip(prelim, scores), key=lambda x: x[1], reverse=True)]
-        except Exception:
-            prelim = sorted(prelim, key=lambda x: x[2])
-    else:
-        prelim = sorted(prelim, key=lambda x: x[2])
-
+    prelim = sorted(prelim, key=lambda x: x[2])  # smaller distance = closer
     return prelim[:k]
 
 def pack_context(retrieved, max_chars=MAX_CTX_CHARS, per_source_cap=3):
@@ -186,7 +180,7 @@ def pack_context(retrieved, max_chars=MAX_CTX_CHARS, per_source_cap=3):
 # Then **References** as `[LAW Art.X – filename]`.
 # 
 
-# In[6]:
+# In[5]:
 
 
 # --- Prompt (escaped braces; single {question}) ---
@@ -314,7 +308,7 @@ def answer_with_openai(question: str, perspective: str, k=TOP_K, model=OAI_MODEL
 
 # Single question test
 
-# In[7]:
+# In[6]:
 
 
 def single_question_test():
@@ -326,7 +320,7 @@ def single_question_test():
     print("=== SOURCES ===\n", references, "\n")
 
 
-# In[8]:
+# In[7]:
 
 
 #single_question_test()
@@ -340,7 +334,7 @@ def single_question_test():
 
 # Batch evaluation
 
-# In[9]:
+# In[8]:
 
 
 def batch_evaluation():
@@ -362,7 +356,7 @@ def batch_evaluation():
         print("=== SOURCES ===\n", references)
 
 
-# In[10]:
+# In[9]:
 
 
 #batch_evaluation()
