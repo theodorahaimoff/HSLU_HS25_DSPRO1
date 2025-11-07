@@ -45,11 +45,6 @@ st.set_page_config(
     layout="centered"
 )
 st.title("⚖️ Schweizer Mietrechts-Assistent")
-boot = st.empty()  # we'll stream boot status here
-def note(msg): boot.markdown(f"🟢 **Startup:** {msg}")
-
-note("loading config…")
-
 st.markdown(
     "Der Schweizer Mietrechts-Assistent ist ein KI-gestütztes Tool, das Fragen zum "
     "**Schweizer Mietrecht** beantwortet. Die Antworten basieren auf juristischen Quellen, "
