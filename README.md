@@ -1,6 +1,7 @@
 # Rental Law RAG (Swiss OR / VMWG / StGB)
 
 **What it does**  
+
 Retrieval-Augmented QA system for Swiss rental law based on Obligationenrecht (OR), Verordnung über die Miete und Pacht von Wohn- und Geschäftsräumen (VMWG), and Strafgesetzbuch (StGB).
 It builds a persistent ChromaDB index using OpenAI embeddings and generates answers via the GPT-4o-mini model.
 ---
