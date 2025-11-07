@@ -1,9 +1,0 @@
-project:
-  output-dir: _docs
-
-website:
-  title: "HSLU_HS25_DSPRO1"
-  site-url: "https://theodorahaimoff.github.io/HSLU_HS25_DSPRO1"
-  description: "swiss-rental-law"
-  repo-branch: main
-  repo-url: "https://github.com/theodorahaimoff/HSLU_HS25_DSPRO1"
