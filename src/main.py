@@ -21,6 +21,10 @@ from _3_answer_generation import answer_with_openai
 CHROMA_COLLECTION = "swiss_private_rental_law_oai"
 CHROMA_DIR = Path(__file__).resolve().parent.parent / "store"
 
+# Disable analytics/telemetry
+os.environ["CHROMA_TELEMETRY_ENABLED"] = "false"
+os.environ["POSTHOG_DISABLED"] = "true"
+
 TOP_K = 5
 MAX_CTX_CHARS = 8000
 
