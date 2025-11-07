@@ -59,5 +59,5 @@ COLLECTION = get_collection()
 
 st.write("Chroma manifest present:", bool(mf))
 st.write("Chroma collection name:", COLLECTION_NAME)
-st.write("Chroma directory exists:", COLLECTION_PATH.exists())
-st.write("Chroma collection has value:", COLLECTION is not None)
+#st.write("Chroma directory exists:", COLLECTION_PATH.exists())
+#st.write("Chroma collection has value:", COLLECTION is not None)
