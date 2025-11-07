@@ -21,7 +21,8 @@ HSLU_HS25_DSPRO1/
 │      └── .gitkeep 
 ├── store/                    # persistent Chroma database used by Streamlit
 │   ├── UID/
-│   └── chroma.sqlite3
+│   ├── chroma.sqlite3
+│   └── manifest.json         # manifest containing the current database information
 ├── notebooks/
 │   ├── 0_installations.ipynb
 │   ├── 1_data_preparation.ipynb
@@ -104,7 +105,7 @@ The app automatically builds its own Chroma index if missing. \
 - The app uses OpenAI embeddings (`dimension = 1536`). Mixing embedding models requires re-indexing.
 - After editing any of the notebooks, generate the respective Python script:
   ```bash
-  jupyter nbconvert --to script notebooks/1_data_preparation.ipynb --output "_1_data_preparation.py" --output-dir=src
+  jupyter nbconvert --to script notebooks/2_indexing_and_retrieval.ipynb --output "indexing_and_retrieval" --output-dir=src --TemplateExporter.exclude_markdown=True --TagRemovePreprocessor.enabled=True --TagRemovePreprocessor.remove_cell_tags='["noexport"]'
   ```
   > 👉 **Note** \
   > Make sure you keep the _ character in front of the output file name, Python has issues when a script begins with a number

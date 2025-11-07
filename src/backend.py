@@ -1,13 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # Answering & Evaluation (Chroma → OpenAI)
-# 
-# Take retrieved legal articles (from Chroma) and generate a **grounded, structured answer** using the GPT-4o-mini model.
-# 
-
-# ## Imports & Paths
-
 # In[1]:
 
 
@@ -19,6 +12,7 @@ import chromadb
 from chromadb.config import Settings
 from openai import OpenAI
 from jsonschema import validate, ValidationError
+
 
 # Retrieval knobs
 TOP_K  = 5
@@ -90,8 +84,6 @@ OAI_CLIENT = OpenAI(api_key=OAI_TOKEN)
 OAI_MODEL = "gpt-4o-mini"
 
 
-# ## Chroma & Embedder helpers
-
 # In[4]:
 
 
@@ -116,23 +108,6 @@ def embed_query(text: str) -> list[float]:
     )
     return resp.data[0].embedding
 
-
-# ### Check collection & doc count
-
-# In[5]:
-
-
-if __name__ == "__main__":
-    # local dev only
-    try:
-        col = get_collection()
-        print("Collection:", CHROMA_COLLECTION, "| count:", col.count())
-        _assert_dim(col)
-    except Exception as e:
-        print("Chroma check failed:", e)
-
-
-# ### Retrieve & re-rank + pack context
 
 # In[6]:
 
@@ -177,17 +152,6 @@ def pack_context(retrieved, max_chars=MAX_CTX_CHARS, per_source_cap=3):
         total += len(block)
     return "".join(ctx)
 
-
-# ## Prompt design
-# 
-# We force a strict structure for answers and **forbid** using anything outside the provided context.
-# 
-# **Format required:**
-# 1) One-sentence answer.
-# 2) Numbered steps/options (say if they apply to Tenant or Landlord).
-# 3) Forms required (exact names if present).
-# 4) Sources (e.g. OR Art.x, Name).
-# 
 
 # In[7]:
 
@@ -310,58 +274,6 @@ def answer_with_openai(question: str, perspective: str, k=TOP_K, model=OAI_MODEL
     references = parsed.get("references") or []
 
     return answer_text, steps, forms, references, hits
-
-
-# ## Local Testing
-
-# ### Single question test
-
-# In[8]:
-
-
-def single_question_test():
-    q = "Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?"
-    ans, steps, forms, references, hits = answer_with_openai(q, perspective="Mieter:in", k=6)
-    print("=== ANSWER ===\n", ans, "\n")
-    print("=== STEPS ===\n", steps, "\n")
-    print("=== FORMS ===\n", forms, "\n")
-    print("=== SOURCES ===\n", references, "\n")
-
-
-# In[9]:
-
-
-#single_question_test()
-
-
-# ### Batch evaluation
-
-# In[10]:
-
-
-def batch_evaluation():
-    eval_questions = [
-        ("Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?", "Mieter:in"),
-        ("Welche Rechte habe ich bei Mängeln in der Wohnung?", "Mieter:in"),
-        ("Darf der Vermieter während laufendem Schlichtungsverfahren kündigen?", "Vermieter:in"),
-        ("Wann sind Mietzinserhöhungen wegen energetischer Verbesserungen zulässig?", "Vermieter:in"),
-    ]
-
-    for q, perspective in eval_questions:
-        print("\n" + "="*150)
-        print("Q:", q, "| Perspective:", perspective)
-        print("="*150)
-        ans, steps, forms, references, hits = answer_with_openai(q, perspective=perspective, k=6)
-        print("\n--- ANSWER ---\n", ans[:2000])  # trim for display
-        print("=== STEPS ===\n", steps[:2000])
-        print("=== FORMS ===\n", forms)
-        print("=== SOURCES ===\n", references)
-
-
-# In[11]:
-
-
-#batch_evaluation()
 
 
 # In[ ]:
