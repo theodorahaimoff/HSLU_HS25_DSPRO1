@@ -18,7 +18,7 @@
 
 # ⚙️ Imports & Paths
 
-# In[15]:
+# In[1]:
 
 
 import os, time, json, hashlib
@@ -46,7 +46,7 @@ os.environ["CHROMA_TELEMETRY_ENABLED"] = "false"
 os.environ["POSTHOG_DISABLED"] = "true"
 
 
-# In[16]:
+# In[2]:
 
 
 try:
@@ -121,7 +121,7 @@ EMBED_MODEL_NAME = "text-embedding-3-small"
 
 # 🧱 Chroma helpers
 
-# In[17]:
+# In[3]:
 
 
 def get_client():
@@ -146,7 +146,7 @@ def wipe_collection(name=CHROMA_COLLECTION):
 
 # 🧠 Embedder init
 
-# In[18]:
+# In[4]:
 
 
 def embed_batch(texts: List[str], *, model: str = EMBED_MODEL_NAME, retries: int = 5) -> List[List[float]]:
@@ -177,7 +177,7 @@ def embed_query(text: str) -> List[float]:
 
 # 📥 Load JSON files
 
-# In[19]:
+# In[5]:
 
 
 def load_article_jsons(root: Path = DATA_JSON):
@@ -222,8 +222,13 @@ if articles:
 
 # 🏗️ Build/Update index
 
-# In[20]:
+# In[6]:
 
+
+def wipe_collection(name="swiss_private_rental_law"):
+    chromadb.PersistentClient(path=str(CHROMA_DIR)).delete_collection(name)
+
+wipe_collection("swiss_private_rental_law")
 
 def build_index(items, batch_size=96, sleep_s=0.0):
     """
@@ -258,6 +263,21 @@ def build_index(items, batch_size=96, sleep_s=0.0):
 collection = build_index(articles)
 
 
+# In[7]:
+
+
+def assert_collection_dim(col, expected_dim: int):
+    peek = col.get(limit=1, include=['embeddings'])
+    if peek.get('embeddings'):
+        dim = len(peek['embeddings'][0])
+        if dim != expected_dim:
+            raise RuntimeError(f"Collection dim={dim} != expected {expected_dim}. "
+                               "Reindex with the same embedding model used at query time.")
+
+# OpenAI text-embedding-3-small is 1536 dims
+assert_collection_dim(get_collection(), 1536)
+
+
 # ## Retrieval Helpers
 # 
 # - `retrieve(query, k, k_pre)`: embeds the query, does ANN search in Chroma, optionally re-ranks.  
@@ -266,7 +286,7 @@ collection = build_index(articles)
 
 # 🧰 Retrieve & (optional) Re-rank
 
-# In[21]:
+# In[8]:
 
 
 def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, collection_name: str = CHROMA_COLLECTION):
@@ -311,7 +331,7 @@ def pack_context(retrieved, max_chars=8000, per_source_cap=3):
 # - metadata is present for citations.
 # 
 
-# In[22]:
+# In[9]:
 
 
 queries = [
@@ -330,7 +350,7 @@ for q in queries:
 
 # 👀  Inspect one context block
 
-# In[23]:
+# In[10]:
 
 
 sample_q = "Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?"
