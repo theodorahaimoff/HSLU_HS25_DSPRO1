@@ -1,4 +1,4 @@
-# Rental Law RAG (Swiss OR / VMWG / StGB)
+# Rental Law RAG
 
 **What it does**  
 
