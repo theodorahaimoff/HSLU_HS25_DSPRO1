@@ -1,35 +1,66 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # Answering & Evaluation (Chroma → Ollama)
+# # Answering & Evaluation (Chroma → OpenAI)
 # 
-# **Goal:** Take retrieved legal articles (from Chroma) and generate a **grounded, structured answer** using a *local* Ollama model (e.g., `llama3:8b`).
-# 
-# **What we’ll do:**
-# 1) Load the Chroma collection
-# 2) Retrieve top-K relevant articles (uses the helpers from Notebook 2)
-# 3) Build a clean context block with citations like `[OR Art. 269d – OR.pdf]`
-# 4) Call **Ollama HTTP API** locally to generate the answer
-# 5) Run a small evaluation set of typical user questions
+# Take retrieved legal articles (from Chroma) and generate a **grounded, structured answer** using the GPT-4o-mini model.
 # 
 
-# Imports & Paths
+# ## Imports & Paths
 
 # In[1]:
 
 
 import os, json, logging
-# Disable analytics/telemetry
-os.environ["CHROMA_TELEMETRY_ENABLED"] = "false"
-os.environ["POSTHOG_DISABLED"] = "true"
-os.environ["ANONYMIZED_TELEMETRY"] = "false"
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 from pathlib import Path
 
 import chromadb
+from chromadb.config import Settings
 from openai import OpenAI
 from jsonschema import validate, ValidationError
+
+# Retrieval knobs
+TOP_K  = 5
+PRE_K  = 20
+MAX_CTX_CHARS = 8000
+
+logging.getLogger("chromadb").setLevel(logging.DEBUG)
+
+
+# In[2]:
+
+
+def get_base_dir() -> Path:
+    """
+    Returns the project base directory that works both:
+    - in normal scripts (via __file__)
+    - in notebooks (via current working directory)
+    """
+    try:
+        return Path(__file__).resolve().parent
+    except NameError:
+        # __file__ not defined (e.g., in Jupyter or interactive)
+        return Path(os.getcwd()).resolve()
+
+def load_manifest():
+    base_dir =  get_base_dir()
+    store_dir = (base_dir.parent / "store").resolve()
+    mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
+    mf["store_dir"] = str(store_dir / mf["dir"])         # absolute path to the versioned dir
+    return mf
+
+MF = load_manifest()
+
+CHROMA_SETTINGS = Settings(anonymized_telemetry=False, allow_reset=True)
+EMBED_MODEL_NAME   = MF["model"]       # replaces hardcoded "text-embedding-3-small"
+CHROMA_COLLECTION  = MF["collection"]  # replaces hardcoded collection name
+CHROMA_DIR         = MF["store_dir"]   # replaces path to store
+EXPECTED_DIM       = MF["dim"]
+
+
+# In[3]:
+
 
 try:
     import streamlit as st  # noqa
@@ -58,43 +89,25 @@ if not OAI_TOKEN:
 OAI_CLIENT = OpenAI(api_key=OAI_TOKEN)
 OAI_MODEL = "gpt-4o-mini"
 
-try:
-    BASE_DIR = Path(__file__).resolve().parent
-except NameError:
-    # Jupyter fallback
-    BASE_DIR = Path(os.getcwd())
 
-CHROMA_DIR = (BASE_DIR.parent / "store").resolve()
-CHROMA_COLLECTION = "swiss_private_rental_law_oai"
+# ## Chroma & Embedder helpers
 
-EMBED_MODEL_NAME = "text-embedding-3-small"
-
-# Retrieval knobs
-TOP_K  = 5
-PRE_K  = 20
-MAX_CTX_CHARS = 8000
-
-
-logging.getLogger("chromadb").setLevel(logging.DEBUG)
-
-
-# We verify:
-# - Chroma store exists and is readable
-# - The collection is present
-# - Ollama is reachable and model is available
-# 
-
-# Chroma & Embedder helpers (same logic as indexing_and_retrieval)
-
-# In[2]:
+# In[4]:
 
 
 def get_client():
-    return chromadb.PersistentClient(path=str(CHROMA_DIR))
+    return chromadb.PersistentClient(path=CHROMA_DIR, settings=CHROMA_SETTINGS)
 
-def get_collection(name=CHROMA_COLLECTION):
+def get_collection(name: str = CHROMA_COLLECTION):
     client = get_client()
     return client.get_collection(name)
+
+def _assert_dim(col, expected=EXPECTED_DIM):
+    peek = col.get(limit=1, include=["embeddings"])
+    if peek.get("embeddings"):
+        dim = len(peek["embeddings"][0])
+        if dim != expected:
+            raise RuntimeError(f"Index dim={dim} != manifest dim={expected}. Update manifest or rebuild index.")
 
 def embed_query(text: str) -> list[float]:
     resp = OAI_CLIENT.embeddings.create(
@@ -104,9 +117,9 @@ def embed_query(text: str) -> list[float]:
     return resp.data[0].embedding
 
 
-# Check collection & doc count
+# ### Check collection & doc count
 
-# In[3]:
+# In[5]:
 
 
 if __name__ == "__main__":
@@ -114,19 +127,14 @@ if __name__ == "__main__":
     try:
         col = get_collection()
         print("Collection:", CHROMA_COLLECTION, "| count:", col.count())
+        _assert_dim(col)
     except Exception as e:
         print("Chroma check failed:", e)
 
 
-# We reuse a lightweight retrieval pipeline:
-# - Embed the query
-# - Query Chroma (optionally prefetch `PRE_K` and re-rank)
-# - Format a **compact context** with clear citations
-# 
+# ### Retrieve & re-rank + pack context
 
-# Retrieve & (optional) re-rank + pack context
-
-# In[4]:
+# In[6]:
 
 
 def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, collection_name: str = CHROMA_COLLECTION):
@@ -170,7 +178,7 @@ def pack_context(retrieved, max_chars=MAX_CTX_CHARS, per_source_cap=3):
     return "".join(ctx)
 
 
-# ### Prompt design
+# ## Prompt design
 # 
 # We force a strict structure for answers and **forbid** using anything outside the provided context.
 # 
@@ -178,12 +186,10 @@ def pack_context(retrieved, max_chars=MAX_CTX_CHARS, per_source_cap=3):
 # 1) One-sentence answer.
 # 2) Numbered steps/options (say if they apply to Tenant or Landlord).
 # 3) Forms required (exact names if present).
-# 4) Articles to read next (e.g., Art. 269 OR; Art. 19 VMWG).
-# 
-# Then **References** as `[LAW Art.X – filename]`.
+# 4) Sources (e.g. OR Art.x, Name).
 # 
 
-# In[5]:
+# In[7]:
 
 
 # --- Prompt (escaped braces; single {question}) ---
@@ -306,12 +312,11 @@ def answer_with_openai(question: str, perspective: str, k=TOP_K, model=OAI_MODEL
     return answer_text, steps, forms, references, hits
 
 
-# Try a realistic query and inspect the sources retrieved.
-# 
+# ## Local Testing
 
-# Single question test
+# ### Single question test
 
-# In[6]:
+# In[8]:
 
 
 def single_question_test():
@@ -323,21 +328,15 @@ def single_question_test():
     print("=== SOURCES ===\n", references, "\n")
 
 
-# In[7]:
+# In[9]:
 
 
 #single_question_test()
 
 
-# We’ll run several canonical questions to check:
-# - Structure & clarity of answers
-# - That references point to the right law/articles
-# - That forms are extracted when present (from VMWG, OR)
-# 
+# ### Batch evaluation
 
-# Batch evaluation
-
-# In[8]:
+# In[10]:
 
 
 def batch_evaluation():
@@ -359,39 +358,11 @@ def batch_evaluation():
         print("=== SOURCES ===\n", references)
 
 
-# In[9]:
+# In[11]:
 
 
 #batch_evaluation()
 
-
-# ### Common issues & fixes
-# 
-# - **`Collection … count: 0`**  
-#   Run Notebook 2 (Indexing) first to build the Chroma collection.
-# 
-# - **Ollama error / not reachable**  
-#   Ensure Ollama is running and the model is available:  
-#   `ollama serve` (if needed), then `ollama pull llama3:8b`.
-# 
-# - **Answers not following format**  
-#   Tighten the prompt (you can add: “If you deviate from the format, respond: ‘Insufficient’”).
-# 
-# - **Irrelevant citations**  
-#   Increase `k` or enable cross-encoder re-rank (install `transformers`, `torch`).
-# 
-# - **Prefer a specific law**  
-#   Add a `where={"law": "OR"}` filter in the `col.query(...)` call inside `retrieve()`.
-# 
-
-# # ✅ Wrap-up
-# 
-# - Answers are now generated **locally** with Ollama using strictly the retrieved legal context.
-# - Citations are explicit and article-level, boosting trust.
-# - You can toggle perspective (“Tenant” / “Landlord”) to tailor steps.
-# 
-# **Next (optional):** Build a tiny Streamlit UI (`app.py`) with a dropdown (Perspective), textbox (Question), and output panel (Answer + References).
-# 
 
 # In[ ]:
 

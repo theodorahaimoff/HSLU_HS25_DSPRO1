@@ -16,9 +16,9 @@
 # A clean, persistent index lets us (a) query instantly, (b) cite exact articles, and (c) add new sources later without redoing everything.
 # 
 
-# ⚙️ Imports & Paths
+# ## ⚙️ Imports & Paths
 
-# In[7]:
+# In[2]:
 
 
 import os, time, json, hashlib
@@ -26,29 +26,49 @@ from pathlib import Path
 from typing import List
 
 import chromadb, logging
+from chromadb.config import Settings
 from openai import OpenAI
 from tqdm import tqdm
 
-# Paths (keep consistent with Notebook 1)
-DATA_JSON = Path("../data/json")
-CHROMA_DIR = Path("../store")
-CHROMA_DIR.mkdir(parents=True, exist_ok=True)
+def get_base_dir() -> Path:
+    """
+    Returns the project base directory that works both:
+    - in normal scripts (via __file__)
+    - in notebooks (via current working directory)
+    """
+    try:
+        return Path(__file__).resolve().parent
+    except NameError:
+        # __file__ not defined (e.g., in Jupyter or interactive)
+        return Path(os.getcwd()).resolve()
 
-# Collection name
-CHROMA_COLLECTION = "swiss_private_rental_law_oai"
+# Paths
+BASE_DIR = get_base_dir()
+STORE_DIR = (BASE_DIR.parent / "store").resolve()
+STORE_DIR.mkdir(parents=True, exist_ok=True)
+DATA_JSON = (BASE_DIR.parent / "data/json").resolve()
+
+MODEL = "text-embedding-3-small"
+EXPECTED_DIM = 1536
+
+# Version tag (use a fixed one when releasing)
+VERSION = time.strftime("v%Y-%m-%d")
+COLLECTION = f"swiss_private_rental_law_oai_{VERSION}"
+VERSION_DIR = f"{VERSION}_{MODEL}_{EXPECTED_DIM}"
+TARGET_DIR = STORE_DIR / VERSION_DIR
+
+CHROMA_SETTINGS = Settings(anonymized_telemetry=False, allow_reset=True)
 
 # Retrieval knobs
 TOP_K  = 5     # final results returned
 PRE_K  = 20    # prefetch for (optional) re-ranking
-
-EXPECTED_DIM = 1536
 
 logging.getLogger("chromadb").setLevel(logging.ERROR)
 os.environ["CHROMA_TELEMETRY_ENABLED"] = "false"
 os.environ["POSTHOG_DISABLED"] = "true"
 
 
-# In[8]:
+# In[3]:
 
 
 try:
@@ -113,42 +133,23 @@ OAI = OpenAI(api_key=OAI_TOKEN)
 EMBED_MODEL_NAME = "text-embedding-3-small"
 
 
-# ## Design Choices
-# 
-# - **Per-article documents**: Each vector represents exactly one legal article (header + body).  
-# - **Metadata**: We store `law`, `article`, `source`, `path`. This enables citations like **[OR Art. 269d – OR.pdf]**.  
-# - **Persistent index**: We use `chromadb.PersistentClient` so the index survives kernel restarts.  
-# - **Normalised embeddings**: Improves cosine-similarity behavior.
-# 
+# ## 🧱 Chroma helpers
 
-# 🧱 Chroma helpers
-
-# In[9]:
+# In[4]:
 
 
-def get_client():
-    return chromadb.PersistentClient(path=str(CHROMA_DIR))
+def get_client_for_target():
+    TARGET_DIR.mkdir(parents=True, exist_ok=True)
+    return chromadb.PersistentClient(path=str(TARGET_DIR), settings=CHROMA_SETTINGS)
 
-def get_collection(client=None, name=CHROMA_COLLECTION):
-    client = client or get_client()
-    return client.get_or_create_collection(name)
-
-def list_collections():
-    client = get_client()
-    return client.list_collections()
-
-def wipe_collection(name=CHROMA_COLLECTION):
-    client = get_client()
-    try:
-        client.delete_collection(name)
-        print(f"Deleted collection: {name}")
-    except Exception as e:
-        print("Delete failed:", e)
+def get_collection(client=None):
+    client = client or get_client_for_target()
+    return client.get_or_create_collection(COLLECTION)
 
 
-# 🧠 Embedder init
+# ## 🧠 Embedder init
 
-# In[10]:
+# In[5]:
 
 
 def embed_batch(texts: List[str], *, model: str = EMBED_MODEL_NAME, retries: int = 5) -> List[List[float]]:
@@ -177,9 +178,9 @@ def embed_query(text: str) -> List[float]:
     return embed_batch([text])[0]
 
 
-# 📥 Load JSON files
+# ## 📥 Load JSON files
 
-# In[11]:
+# In[6]:
 
 
 def load_article_jsons(root: Path = DATA_JSON):
@@ -222,9 +223,9 @@ if articles:
 # > Re-running is safe: Chroma deduplicates by IDs (we use md5 of file path).
 # 
 
-# 🏗️ Build/Update index
+# ### 🏗️ Build/Update index
 
-# In[12]:
+# In[7]:
 
 
 """
@@ -238,9 +239,9 @@ def build_index(items, batch_size=96, sleep_s=0.0):
     - Batches texts, calls OpenAI embeddings
     - Upserts (ids, documents, metadatas, embeddings) into Chroma
     """
-    client = get_client()
+    client = get_client_for_target()
     col = get_collection(client)
-    print("Collection:", CHROMA_COLLECTION, "| existing docs:", col.count())
+    print("Collection:", COLLECTION, "| existing docs:", col.count())
 
     ids_buf, docs_buf, metas_buf = [], [], []
 
@@ -266,7 +267,7 @@ def build_index(items, batch_size=96, sleep_s=0.0):
 collection = build_index(articles)
 
 
-# In[13]:
+# In[8]:
 
 
 def assert_collection_dim(col, expected_dim=EXPECTED_DIM):
@@ -286,18 +287,35 @@ col = get_collection()
 assert_collection_dim(col)
 
 
+# In[9]:
+
+
+def write_manifest():
+    mf = {
+        "index_version": VERSION,
+        "model": MODEL,
+        "dim": EXPECTED_DIM,
+        "dir": VERSION_DIR,
+        "collection": COLLECTION,
+    }
+    (STORE_DIR / "manifest.json").write_text(json.dumps(mf, indent=2), encoding="utf-8")
+    print("Wrote manifest:", mf)
+
+write_manifest()
+
+
 # ## Retrieval Helpers
 # 
 # - `retrieve(query, k, k_pre)`: embeds the query, does ANN search in Chroma, optionally re-ranks.  
 # - `pack_context(...)`: formats retrieved docs for readability and later prompting.
 # 
 
-# 🧰 Retrieve & (optional) Re-rank
+# ### 🧰 Retrieve & (optional) Re-rank
 
-# In[14]:
+# In[10]:
 
 
-def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, collection_name: str = CHROMA_COLLECTION):
+def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, collection_name: str = COLLECTION):
     col = get_collection()
     q_emb = embed_query(query)
     res = col.query(
@@ -339,7 +357,7 @@ def pack_context(retrieved, max_chars=8000, per_source_cap=3):
 # - metadata is present for citations.
 # 
 
-# In[15]:
+# In[11]:
 
 
 queries = [
@@ -356,9 +374,9 @@ for q in queries:
     print()
 
 
-# 👀  Inspect one context block
+# ### 👀  Inspect one context block
 
-# In[16]:
+# In[12]:
 
 
 sample_q = "Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?"

@@ -7,25 +7,44 @@ It uses a persistent Chroma vector store for semantic retrieval and the
 Hugging Face Inference API for grounded answer generation.
 """
 
-import os, re, logging
-# Disable analytics/telemetry
-os.environ["CHROMA_TELEMETRY_ENABLED"] = "false"
-os.environ["POSTHOG_DISABLED"] = "true"
-os.environ["ANONYMIZED_TELEMETRY"] = "false"
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
+import os, re, logging, json
 
 from pathlib import Path
 from typing import Iterable, List, Tuple
 import streamlit as st
 import chromadb
+from chromadb.config import Settings
 from _3_answer_generation import answer_with_openai
 
 # ============================================================
 # Configuration
 # ============================================================
+def get_base_dir() -> Path:
+    """
+    Returns the project base directory that works both:
+    - in normal scripts (via __file__)
+    - in notebooks (via current working directory)
+    """
+    try:
+        return Path(__file__).resolve().parent
+    except NameError:
+        # __file__ not defined (e.g., in Jupyter or interactive)
+        return Path(os.getcwd()).resolve()
 
-CHROMA_COLLECTION = "swiss_private_rental_law_oai"
-CHROMA_DIR = Path(__file__).resolve().parent.parent / "store"
+def load_manifest():
+    base_dir = get_base_dir()
+    store_dir = (base_dir.parent / "store").resolve()
+    mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
+    mf["store_dir"] = str(store_dir / mf["dir"])         # absolute path to the versioned dir
+    return mf
+
+MF = load_manifest()
+
+CHROMA_SETTINGS = Settings(anonymized_telemetry=False, allow_reset=True)
+EMBED_MODEL_NAME   = MF["model"]       # replaces hardcoded "text-embedding-3-small"
+CHROMA_COLLECTION  = MF["collection"]  # replaces hardcoded collection name
+CHROMA_DIR         = MF["store_dir"]   # replaces path to store
+EXPECTED_DIM       = MF["dim"]
 
 TOP_K = 5
 MAX_CTX_CHARS = 8000
@@ -69,8 +88,11 @@ logging.getLogger("torch").setLevel(logging.INFO)
 # Database Connection
 # ============================================================
 
+def get_client(path: str | os.PathLike) -> chromadb.PersistentClient:
+    return chromadb.PersistentClient(path=str(path), settings=CHROMA_SETTINGS)
+
 try:
-    client = chromadb.PersistentClient(path=str(CHROMA_DIR))
+    client = get_client(CHROMA_DIR)
     col = client.get_collection(CHROMA_COLLECTION)
     logger.info(f"Loaded Chroma collection '{CHROMA_COLLECTION}' "
                 f"with {col.count()} entries from '{CHROMA_DIR}'.")
