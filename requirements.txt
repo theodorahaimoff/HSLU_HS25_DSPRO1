@@ -1,6 +1,6 @@
 streamlit==1.38.0
 openai==2.7.1
-chromadb==0.5.12
+chromadb==0.6.3
 jsonschema==4.23.0
 requests>=2.32.3
 python-dotenv>=1.0.1
