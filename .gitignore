@@ -24,7 +24,7 @@ src/logs/*
 
 # Include persistent database
 !store/chroma.sqlite3
-!store/86c09fa1-995e-43fb-925d-57aeec12ec7a/**
+!store/86c09fa1-995e-43fb-925d-57aeec12ec7a
 
 # OS cruft
 .DS_Store
