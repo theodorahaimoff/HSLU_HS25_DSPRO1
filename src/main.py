@@ -7,25 +7,14 @@ It uses a persistent Chroma vector store for semantic retrieval and the
 Hugging Face Inference API for grounded answer generation.
 """
 
-import re
-
+import re, logging
+from pathlib import Path
 from typing import Iterable, Tuple
-from backend import *
-
-# ============================================================
-# Configuration
-# ============================================================
-st.set_page_config(
-    page_title="Schweizer Mietrechts-Assistent",
-    page_icon="⚖️",
-    layout="centered"
-)
-st.title("⚖️ Schweizer Mietrechts-Assistent")
-st.markdown(
-    "Der Schweizer Mietrechts-Assistent ist ein KI-gestütztes Tool, das Fragen zum "
-    "**Schweizer Mietrecht** beantwortet. Die Antworten basieren auf juristischen Quellen, "
-    "werden jedoch automatisch generiert und sind **keine** rechtliche Beratung. "
-    "Sie dienen lediglich als Orientierungshilfe."
+import streamlit as st
+from backend import (
+    TOP_K, _collection_name,
+    get_collection,
+    answer_with_openai
 )
 
 # ============================================================
@@ -49,17 +38,34 @@ logging.basicConfig(
 logger = logging.getLogger("SwissRentalLawApp")
 logger.info("Starting Swiss Rental-Law Assistant...")
 logging.getLogger("torch").setLevel(logging.INFO)
+logging.getLogger("chromadb").setLevel(logging.DEBUG)
+
+# ============================================================
+# Configuration
+# ============================================================
+st.set_page_config(
+    page_title="Schweizer Mietrechts-Assistent",
+    page_icon="⚖️",
+    layout="centered"
+)
+st.title("⚖️ Schweizer Mietrechts-Assistent")
+st.markdown(
+    "Der Schweizer Mietrechts-Assistent ist ein KI-gestütztes Tool, das Fragen zum "
+    "**Schweizer Mietrecht** beantwortet. Die Antworten basieren auf juristischen Quellen, "
+    "werden jedoch automatisch generiert und sind **keine** rechtliche Beratung. "
+    "Sie dienen lediglich als Orientierungshilfe."
+)
 
 # ============================================================
 # Database Connection
 # ============================================================
 try:
-    client = get_client()
-    col = client.get_collection(CHROMA_COLLECTION)
-    logger.info(f"Loaded Chroma collection '{CHROMA_COLLECTION}' "
-                f"with {col.count()} entries from '{CHROMA_DIR}'.")
+    name = _collection_name()
+    col = get_collection(name)
+    logger.info(f"Loaded Chroma collection '{name}' "
+                f"with {col.count()} entries.")
 except Exception:
-    logger.exception(f"Failed to load Chroma collection '{CHROMA_COLLECTION}'")
+    logger.exception(f"Failed to load Chroma collection '{name}'")
     st.sidebar.error("Datenbank konnte nicht geladen werden. Siehe Logdatei für Details.")
 
 

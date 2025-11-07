@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[5]:
 
 
-import os, json, logging
-
+import os, json
 from pathlib import Path
-
+import streamlit as st
 import chromadb
 from chromadb.config import Settings
 from openai import OpenAI
@@ -19,10 +18,8 @@ TOP_K  = 5
 PRE_K  = 20
 MAX_CTX_CHARS = 8000
 
-logging.getLogger("chromadb").setLevel(logging.DEBUG)
 
-
-# In[2]:
+# In[6]:
 
 
 def get_base_dir() -> Path:
@@ -44,22 +41,26 @@ def load_manifest():
     mf["store_dir"] = str(store_dir / mf["dir"])         # absolute path to the versioned dir
     return mf
 
-MF = load_manifest()
+def _mf():
+    return load_manifest()
 
 CHROMA_SETTINGS = Settings(anonymized_telemetry=False, allow_reset=True)
-EMBED_MODEL_NAME   = MF["model"]       # replaces hardcoded "text-embedding-3-small"
-CHROMA_COLLECTION  = MF["collection"]  # replaces hardcoded collection name
-CHROMA_DIR         = MF["store_dir"]   # replaces path to store
-EXPECTED_DIM       = MF["dim"]
+
+def _embedding_model_name():
+    return _mf()["model"]
+
+def _collection_name():
+    return _mf()["collection"]
+
+def _chroma_dir():
+    return _mf()["store_dir"]
+
+def _expected_dim():
+    return _mf()["dim"]
 
 
-# In[3]:
+# In[7]:
 
-
-try:
-    import streamlit as st  # noqa
-except Exception:
-    st = None
 
 def _get_oai_token():
     try:
@@ -68,92 +69,59 @@ def _get_oai_token():
     except Exception:
         return os.getenv("OAI_TOKEN") or ""
 
-OAI_TOKEN = _get_oai_token()
+def get_oai_client():
+    key = _get_oai_token()
+    if not key:
+        raise EnvironmentError("OpenAI token missing (set OAI_TOKEN or OPENAI_API_KEY).")
+    return OpenAI(api_key=key)
 
-if not OAI_TOKEN:
-    if st is not None:
-        # stop Streamlit cleanly with a visible error
-        st.error("OpenAI Token fehlt. Lege es in `.streamlit/secrets.toml` unter `[env].OAI_TOKEN` "
-                 "oder als Env-Var `OAI_TOKEN` an.")
-        st.stop()
-    else:
-        # non-Streamlit context (CLI/tests)
-        raise EnvironmentError("OAI_TOKEN missing. Set env var or Streamlit secret.")
-
-OAI_CLIENT = OpenAI(api_key=OAI_TOKEN)
-OAI_MODEL = "gpt-4o-mini"
-
-
-# In[4]:
-
-
-def get_client():
-    return chromadb.PersistentClient(path=CHROMA_DIR, settings=CHROMA_SETTINGS)
-
-def get_collection(name: str = CHROMA_COLLECTION):
-    client = get_client()
-    return client.get_collection(name)
-
-def _assert_dim(col, expected=EXPECTED_DIM):
-    peek = col.get(limit=1, include=["embeddings"])
-    if peek.get("embeddings"):
-        dim = len(peek["embeddings"][0])
-        if dim != expected:
-            raise RuntimeError(f"Index dim={dim} != manifest dim={expected}. Update manifest or rebuild index.")
-
-def embed_query(text: str) -> list[float]:
-    resp = OAI_CLIENT.embeddings.create(
-        model=EMBED_MODEL_NAME,
-        input=text
-    )
+def embed_query(text: str) -> list:
+    client = get_oai_client()
+    resp = client.embeddings.create(model=_embedding_model_name(), input=text)
     return resp.data[0].embedding
 
 
-# In[6]:
+# In[8]:
 
 
-def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, collection_name: str = CHROMA_COLLECTION):
+def get_client():
+    return chromadb.PersistentClient(path=_chroma_dir(), settings=CHROMA_SETTINGS)
+
+def get_collection(name: str | None = None):
+    name = name or _collection_name()
+    return get_client().get_collection(name)
+
+
+# In[11]:
+
+
+def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, collection_name: str | None = None):
     col = get_collection(collection_name)
-
-    # 1) embed the query with OpenAI
     q_emb = embed_query(query)
-
-    # 2) query Chroma (no reranker, distance sort)
-    res = col.query(
-        query_embeddings=[q_emb],
-        n_results=k_pre,
-        include=['documents', 'metadatas', 'distances']
-    )
-
+    res = col.query(query_embeddings=[q_emb], n_results=k_pre, include=['documents','metadatas','distances'])
     docs  = res.get('documents', [[]])[0]
     metas = res.get('metadatas', [[]])[0]
     dists = res.get('distances', [[]])[0]
-
-    prelim = list(zip(docs, metas, dists))
-    prelim = sorted(prelim, key=lambda x: x[2])  # smaller distance = closer
+    prelim = sorted(list(zip(docs, metas, dists)), key=lambda x: x[2])
     return prelim[:k]
 
 def pack_context(retrieved, max_chars=MAX_CTX_CHARS, per_source_cap=3):
-    #Build context string from retrieved docs.
     ctx, total, seen = [], 0, {}
-
     for doc, meta, dist in retrieved:
         key = (meta.get("law"), meta.get("article"))
         seen[key] = seen.get(key, 0) + 1
         if seen[key] > per_source_cap:
             continue
-
         stamp = f"[{meta.get('law','?')} {meta.get('title','?')} – {meta.get('source')}]"
         block = f"{stamp}\n{doc.strip()}\n\n"
         if total + len(block) > max_chars:
             break
-
         ctx.append(block)
         total += len(block)
     return "".join(ctx)
 
 
-# In[7]:
+# In[12]:
 
 
 # --- Prompt (escaped braces; single {question}) ---
@@ -210,70 +178,42 @@ schema = {
     "required": ["answer", "references"]
 }
 
-def answer_with_openai(question: str, perspective: str, k=TOP_K, model=OAI_MODEL, max_chars=MAX_CTX_CHARS):
-    """
-    Query OpenAI with retrieved context and return:
-    (generated_answer, steps, forms, references, hits)
-    """
-    # 1) Retrieve documents
+
+def answer_with_openai(question: str, perspective: str, k=TOP_K, model="gpt-4o-mini", max_chars=MAX_CTX_CHARS):
     hits = retrieve(question, k=k)
     context = pack_context(hits, max_chars=max_chars)
 
-    # 2) Build prompt
-    prompt = PROMPT.format(
-        context=context,
-        question=f"Perspective: {perspective}, Question: {question}"
+    prompt = PROMPT.format(context=context, question=f"Perspective: {perspective}, Question: {question}")
+
+    client = get_oai_client()
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": [{"type": "text", "text": prompt}]},
+            {"role": "user",   "content": [{"type": "text", "text":
+                "Beantworte die Frage gemäss obigen Vorgaben. Fülle die Felder des JSON-Schemas aus. "
+                "Sprache: Deutsch (Schweiz), Du-Form. Für 'steps' gilt: Gib 2–8 kurze Einträge zurück, "
+                "jeder Eintrag genau EIN Schritt, EINE Zeile, KEINE Nummerierung oder Zeilenumbrüche. "
+                "Für 'forms': gib die genauen offiziellen Bezeichnungen aus dem CONTEXT zurück (leer, wenn keine). "
+                "Gib NUR JSON zurück."
+            }]}
+        ],
+        temperature=0,
+        response_format={"type": "json_object"}
     )
-
-    # 3) Call Chat Completions in JSON mode (SDK 2.7.1)
-    try:
-        resp = OAI_CLIENT.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": [{"type": "text", "text": prompt}]},
-                {"role": "user",   "content": [{"type": "text", "text":
-                    "Beantworte die Frage gemäss obigen Vorgaben. "
-                    "Fülle die Felder des JSON-Schemas aus. "
-                    "Sprache: Deutsch (Schweiz), Du-Form. "
-                    "Für 'steps' gilt: Gib 2–8 kurze Einträge zurück, "
-                    "jeder Eintrag genau EIN Schritt, EINE Zeile, KEINE Nummerierung oder Zeilenumbrüche. "
-                    "Für 'forms': gib die genauen offiziellen Bezeichnungen aus dem CONTEXT zurück (leer, wenn keine). "
-                    "Gib NUR JSON zurück."
-                }]}
-            ],
-            temperature=0,
-            response_format={"type": "json_object"}
-        )
-    except Exception as e:
-        return f"[OpenAI error]: {e}", [], [], [], hits
-
-    # 4) Parse JSON
     content = resp.choices[0].message.content or ""
-    try:
-        parsed = json.loads(content)
-    except Exception as e:
-        return f"[Parse error]: {e}\nRaw: {content}", [], [], [], hits
-
-    # 5) Validate schema
-    try:
-        validate(instance=parsed, schema=schema)
-    except ValidationError as ve:
-        return f"[Schema validation error]: {ve.message}\nRaw: {parsed}", [], [], [], hits
-
-    # 6) Normalize & return
-    answer_text = (parsed.get("answer") or "").strip()
+    parsed = json.loads(content)  # will raise clearly if not JSON
+    validate(instance=parsed, schema=schema)
 
     steps = parsed.get("steps") or []
-    if isinstance(steps, str):
-        steps = [s.strip() for s in steps.split("\n") if s.strip()]
-
     forms = parsed.get("forms") or []
-    if isinstance(forms, str):
-        forms = [f.strip() for f in forms.split("\n") if f.strip()]
+    refs  = parsed.get("references") or []
 
-    references = parsed.get("references") or []
+    # normalize
+    if isinstance(steps, str): steps = [s.strip() for s in steps.split("\n") if s.strip()]
+    if isinstance(forms, str): forms = [f.strip() for f in forms.split("\n") if f.strip()]
 
-    return answer_text, steps, forms, references, hits
+    return (parsed.get("answer","").strip(), steps, forms, refs, hits)
 
 
 # In[ ]:
