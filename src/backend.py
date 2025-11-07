@@ -13,7 +13,6 @@ from jsonschema import validate
 
 try:
     import chromadb
-    from chromadb.config import Settings
 except Exception as e:
     st.sidebar.error(
         "ChromaDB couldn’t be imported." + str(e)
@@ -38,17 +37,16 @@ def get_base_dir() -> Path:
     - in notebooks (via current working directory)
     """
     try:
-        return Path(__file__).resolve().parent
+        return Path().parent.resolve()
     except NameError:
         # __file__ not defined (e.g., in Jupyter or interactive)
         return Path(os.getcwd()).resolve()
 
+store_dir = get_base_dir()/ "store"
+
 def load_manifest():
     try:
-        base_dir =  get_base_dir()
-        store_dir = base_dir / "store"
         mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
-        mf["store_dir"] = str(store_dir / mf["dir"])         # absolute path to the versioned dir
         return mf
     except Exception as e:
         st.sidebar.error(f"Manifest error: {e}")
@@ -57,8 +55,6 @@ def load_manifest():
 def _mf():
     return load_manifest()
 
-CHROMA_SETTINGS = Settings(anonymized_telemetry=False, allow_reset=True)
-
 def _embedding_model_name():
     return _mf()["model"]
 
@@ -66,7 +62,7 @@ def _collection_name():
     return _mf()["collection"]
 
 def _chroma_dir():
-    return _mf()["store_dir"]
+    return store_dir / _collection_name()
 
 def _expected_dim():
     return _mf()["dim"]
@@ -98,7 +94,7 @@ def embed_query(text: str) -> list:
 
 
 def get_client():
-    return chromadb.PersistentClient(path=_chroma_dir(), settings=CHROMA_SETTINGS)
+    return chromadb.PersistentClient(path=_chroma_dir())
 
 def get_collection(name: str | None = None):
     name = name or _collection_name()

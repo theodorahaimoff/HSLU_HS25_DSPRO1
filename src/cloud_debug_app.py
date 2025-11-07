@@ -43,17 +43,21 @@ store_dir = Path().parent.resolve() / "store"
 mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
 
 MODEL_NAME = mf["model"]
-COLLECTION = mf["collection"]
+COLLECTION_NAME = mf["collection"]
 EXPECTED_DIM = mf["dim"]
-COLLECTION_PATH = store_dir / COLLECTION
+COLLECTION_PATH = store_dir / COLLECTION_NAME
 
 def get_client():
     return chromadb.PersistentClient(path=COLLECTION_PATH)
 
 def get_collection(name: str | None = None):
-    name = name or COLLECTION
+    name = name or COLLECTION_NAME
     col = get_client().get_collection(name)
     return col
 
+COLLECTION = get_collection()
+
 st.write("Chroma manifest present:", bool(mf))
-st.write("Chroma collection name:", COLLECTION)
+st.write("Chroma collection name:", COLLECTION_NAME)
+st.write("Chroma directory exists:", COLLECTION_PATH.exists())
+st.write("Chroma collection has value:", COLLECTION is not None)
