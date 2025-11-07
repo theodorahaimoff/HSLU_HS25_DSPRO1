@@ -19,6 +19,12 @@
 
 
 import os, json, logging
+# Disable analytics/telemetry
+os.environ["CHROMA_TELEMETRY_ENABLED"] = "false"
+os.environ["POSTHOG_DISABLED"] = "true"
+os.environ["ANONYMIZED_TELEMETRY"] = "false"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 from pathlib import Path
 
 import chromadb
@@ -70,9 +76,6 @@ MAX_CTX_CHARS = 8000
 
 
 logging.getLogger("chromadb").setLevel(logging.DEBUG)
-# Disable analytics/telemetry
-os.environ["CHROMA_TELEMETRY_ENABLED"] = "false"
-os.environ["POSTHOG_DISABLED"] = "true"
 
 
 # We verify:

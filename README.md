@@ -1,55 +1,60 @@
 # Rental Law RAG (Swiss OR / VMWG / StGB)
 
 **What it does**  
-Retrieval-Augmented QA for Swiss rental law. It splits PDFs into **per-article** JSON, builds a **Chroma** vector index, and answers questions with a **local Ollama** model (`llama3:8b`), citing `[LAW Art.X – filename]`.
-
+Retrieval-Augmented QA system for Swiss rental law based on Obligationenrecht (OR), Verordnung über die Miete und Pacht von Wohn- und Geschäftsräumen (VMWG), and Strafgesetzbuch (StGB).
+It builds a persistent ChromaDB index using OpenAI embeddings and generates answers via the GPT-4o-mini model.
 ---
 
-## Repo Layout
+## 🗂️ Repo Layout
 ```bash
-rental_law_rag/
+HSLU_HS25_DSPRO1/
 ├── README.md
 ├── requirements.txt
 ├── .gitignore
+├── .streamlit/
+│   └── config.toml          # contains Streamlit global configuration
 ├── data/
-│   ├── raw/
-│   │   ├── OR.pdf
-│   │   ├── STGB.pdf
-│   │   └── VMWG.pdf
-│   └── json/
-│       └── .gitkeep
-├── store/
-│   └── .gitkeep
+│   ├── raw/                  # input PDFs (OR.pdf, VMWG.pdf, STGB.pdf)
+│   └── json/                 # per-article JSON files (auto generated)
+│      └── .gitkeep 
+├── store/                    # persistent Chroma database used by Streamlit
+│   ├── UID/
+│   └── chroma.sqlite3
 ├── notebooks/
 │   ├── 0_installations.ipynb
 │   ├── 1_data_preparation.ipynb
 │   ├── 2_indexing_and_retrieval.ipynb
-│   └── 3_answer_generation_local_ollama.ipynb
+│   └── 3_answer_generation.ipynb
 └── src/
+    ├── logs/
+    │   └── .gitkeep 
     ├── _0_installations.py
     ├── _1_data_preparation.py
     ├── _2_indexing_and_retrieval.py
     ├── _3_answer_generation.py
-    └── main_local_ollama.py
+    ├── main.py               # Streamlit UI (cloud/local)
+    └── cloud_debug_app.py    # helper for debugging Streamlit Cloud
+
 ```
-
-
 
 ---
 
-## Setup
+## ⚙️ Setup (local)
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-
-
-ollama serve            # in one terminal
-ollama pull llama3:8b   # once
 ```
+### Environment
 
-## Usage
+Add your OpenAI API key to .streamlit/secrets.toml:
+```bash
+[env]
+OAI_TOKEN = "sk-s..."
+```
+---
+## 🧩 Usage
 
 ### 1️⃣ Add PDFs
 Put the 3 law PDFs into `data/raw/`:
@@ -67,26 +72,30 @@ Run **Notebook 1** (`1_data_preparation.ipynb`)
 
 ### 4️⃣ Build Chroma index
 Run **Notebook 2** (`2_indexing_and_retrieval.ipynb`)  
-→ creates the persistent database in `store/`.
+→ creates embeddings using OpenAI text-embedding-3-small and stores them persistently in `store/`.
 
 ### 5️⃣ Ask questions
 Run **Notebook 3** (`3_answering_and_evaluation.ipynb`)  
-→ asks Ollama locally (model `llama3:8b`) and prints legal answers with citations.
+→ queries Chroma and generates structured JSON answers using GPT-4o-mini.
 
-### 6️⃣ Run Streamlit app
+### 6️⃣ Launch Streamlit app
 Run the following command on your terminal
 ```bash
-streamlit run src/main_local_ollama.py
+streamlit run src/main.py
 ```
 The application's GUI should now be available under http://localhost:8501/
 
-## Notes for Collaborators
-- Generated folders (`data/json/`, `store/`) are **git-ignored** — everyone rebuilds them locally.
-- If Ollama isn’t running, start it using:
-  ```bash
-  ollama serve
-  ollama pull llama3:8b
-  ```
+### 7️⃣ Deployment to Streamlit Cloud (optional)
+
+Push to GitHub. \
+The app automatically builds its own Chroma index if missing. \
+> 👉 **Note** \
+> Add your `OAI_TOKEN` to Streamlit Secrets.
+---
+## 🤝 Notes for Collaborators
+- Logs and JSON files are **git-ignored** — they're rebuilt locally.
+- Secrets are **git-ignored** due to security concerns.
+- The app uses OpenAI embeddings (`dimension = 1536`). Mixing embedding models requires re-indexing.
 - After editing any of the notebooks, generate the respective Python script:
   ```bash
   jupyter nbconvert --to script notebooks/1_data_preparation.ipynb --output "_1_data_preparation.py" --output-dir=src

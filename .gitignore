@@ -27,6 +27,4 @@ src/logs/*
 .DS_Store
 Thumbs.db
 
-# (optional) PDFs, if you don’t use LFS
-data/raw/*.pdf
 
