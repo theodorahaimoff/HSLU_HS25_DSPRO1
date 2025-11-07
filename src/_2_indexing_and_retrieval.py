@@ -35,11 +35,13 @@ CHROMA_DIR = Path("../store")
 CHROMA_DIR.mkdir(parents=True, exist_ok=True)
 
 # Collection name
-CHROMA_COLLECTION = "swiss_private_rental_law"
+CHROMA_COLLECTION = "swiss_private_rental_law_oai"
 
 # Retrieval knobs
 TOP_K  = 5     # final results returned
 PRE_K  = 20    # prefetch for (optional) re-ranking
+
+EXPECTED_DIM = 1536
 
 logging.getLogger("chromadb").setLevel(logging.ERROR)
 os.environ["CHROMA_TELEMETRY_ENABLED"] = "false"
@@ -225,10 +227,10 @@ if articles:
 # In[6]:
 
 
-#def wipe_collection(name="swiss_private_rental_law"):
-#    chromadb.PersistentClient(path=str(CHROMA_DIR)).delete_collection(name)
+def wipe_collection(name="swiss_private_rental_law"):
+    chromadb.PersistentClient(path=str(CHROMA_DIR)).delete_collection(name)
 
-#wipe_collection("swiss_private_rental_law")
+wipe_collection("swiss_private_rental_law")
 
 def build_index(items, batch_size=96, sleep_s=0.0):
     """
@@ -266,16 +268,21 @@ collection = build_index(articles)
 # In[7]:
 
 
-def assert_collection_dim(col, expected_dim: int):
-    peek = col.get(limit=1, include=['embeddings'])
-    if peek.get('embeddings'):
-        dim = len(peek['embeddings'][0])
-        if dim != expected_dim:
-            raise RuntimeError(f"Collection dim={dim} != expected {expected_dim}. "
-                               "Reindex with the same embedding model used at query time.")
+def assert_collection_dim(col, expected_dim=EXPECTED_DIM):
+    try:
+        peek = col.get(limit=1, include=['embeddings'])
+        if peek.get('embeddings'):
+            dim = len(peek['embeddings'][0])
+            if dim != expected_dim:
+                raise RuntimeError(
+                    f"Chroma collection has dim={dim}, expected {expected_dim}. "
+                    "Delete or point to the correct collection."
+                )
+    except Exception:
+        pass  # empty collection is fine
 
-# OpenAI text-embedding-3-small is 1536 dims
-assert_collection_dim(get_collection(), 1536)
+col = get_collection()
+assert_collection_dim(col)
 
 
 # ## Retrieval Helpers

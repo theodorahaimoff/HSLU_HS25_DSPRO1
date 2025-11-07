@@ -18,7 +18,7 @@ from _3_answer_generation import answer_with_openai
 # Configuration
 # ============================================================
 
-CHROMA_COLLECTION = "swiss_private_rental_law"
+CHROMA_COLLECTION = "swiss_private_rental_law_oai"
 CHROMA_DIR = Path(__file__).resolve().parent.parent / "store"
 
 TOP_K = 5

@@ -59,7 +59,7 @@ except NameError:
     BASE_DIR = Path(os.getcwd())
 
 CHROMA_DIR = (BASE_DIR.parent / "store").resolve()
-CHROMA_COLLECTION = "swiss_private_rental_law"
+CHROMA_COLLECTION = "swiss_private_rental_law_oai"
 
 EMBED_MODEL_NAME = "text-embedding-3-small"
 
