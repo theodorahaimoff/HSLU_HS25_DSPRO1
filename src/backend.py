@@ -12,7 +12,6 @@ import chromadb
 from chromadb.config import Settings
 from openai import OpenAI
 from jsonschema import validate
-from functools import lru_cache
 
 
 # Retrieval knobs
@@ -38,7 +37,6 @@ def get_base_dir() -> Path:
         # __file__ not defined (e.g., in Jupyter or interactive)
         return Path(os.getcwd()).resolve()
 
-@lru_cache(maxsize=1)
 def load_manifest():
     try:
         base_dir =  get_base_dir()
@@ -71,7 +69,6 @@ def _expected_dim():
 # In[7]:
 
 
-@lru_cache(maxsize=1)
 def _get_oai_token():
     try:
         s = dict(st.secrets)
