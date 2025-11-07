@@ -4,7 +4,7 @@
 # In[5]:
 
 
-import os, json
+import os, json, logging
 from pathlib import Path
 import streamlit as st
 import chromadb
@@ -17,6 +17,8 @@ from jsonschema import validate, ValidationError
 TOP_K  = 5
 PRE_K  = 20
 MAX_CTX_CHARS = 8000
+
+logger = logging.getLogger("SwissRentalLawApp")
 
 
 # In[6]:
@@ -89,7 +91,9 @@ def get_client():
 
 def get_collection(name: str | None = None):
     name = name or _collection_name()
-    return get_client().get_collection(name)
+    col = get_client().get_collection(name)
+    logger.info(f"Loaded Chroma collection '{name}' with {col.count()} entries.")
+    return col
 
 
 # In[11]:

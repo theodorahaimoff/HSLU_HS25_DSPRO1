@@ -11,11 +11,7 @@ import re, logging
 from pathlib import Path
 from typing import Iterable, Tuple
 import streamlit as st
-from backend import (
-    TOP_K, _collection_name,
-    get_collection,
-    answer_with_openai
-)
+from backend import TOP_K, answer_with_openai
 
 # ============================================================
 # Logging
@@ -55,19 +51,6 @@ st.markdown(
     "werden jedoch automatisch generiert und sind **keine** rechtliche Beratung. "
     "Sie dienen lediglich als Orientierungshilfe."
 )
-
-# ============================================================
-# Database Connection
-# ============================================================
-try:
-    name = _collection_name()
-    col = get_collection(name)
-    logger.info(f"Loaded Chroma collection '{name}' "
-                f"with {col.count()} entries.")
-except Exception:
-    logger.exception(f"Failed to load Chroma collection '{name}'")
-    st.sidebar.error("Datenbank konnte nicht geladen werden. Siehe Logdatei für Details.")
-
 
 # ============================================================
 # Markdown Helper Functions
