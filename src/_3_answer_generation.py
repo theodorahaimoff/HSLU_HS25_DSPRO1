@@ -18,7 +18,7 @@
 # In[1]:
 
 
-import os, json, logging, shutil
+import os, json, logging
 from pathlib import Path
 
 import chromadb
@@ -91,16 +91,7 @@ def get_client():
 
 def get_collection(name=CHROMA_COLLECTION):
     client = get_client()
-    try:
-        return client.get_collection(CHROMA_COLLECTION)
-    except Exception as e:
-        if "schema_str" in str(e):
-            # wipe incompatible DB and re-init
-            shutil.rmtree(CHROMA_DIR, ignore_errors=True)
-            CHROMA_DIR.mkdir(parents=True, exist_ok=True)
-            client = chromadb.PersistentClient(path=str(CHROMA_DIR))
-            return client.get_or_create_collection(CHROMA_COLLECTION)
-        raise
+    return client.get_collection(name)
 
 def embed_query(text: str) -> list[float]:
     resp = OAI_CLIENT.embeddings.create(
