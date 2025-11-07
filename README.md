@@ -19,24 +19,21 @@ HSLU_HS25_DSPRO1/
 │   ├── raw/                  # input PDFs (OR.pdf, VMWG.pdf, STGB.pdf)
 │   └── json/                 # per-article JSON files (auto generated)
 │      └── .gitkeep 
-├── store/                    # persistent Chroma database used by Streamlit
-│   ├── UID/
-│   ├── chroma.sqlite3
-│   └── manifest.json         # manifest containing the current database information
 ├── notebooks/
 │   ├── 0_installations.ipynb
 │   ├── 1_data_preparation.ipynb
 │   ├── 2_indexing_and_retrieval.ipynb
 │   └── 3_answer_generation.ipynb
-└── src/
-    ├── logs/
-    │   └── .gitkeep 
-    ├── _0_installations.py
-    ├── _1_data_preparation.py
-    ├── _2_indexing_and_retrieval.py
-    ├── _3_answer_generation.py
-    ├── main.py               # Streamlit UI (cloud/local)
-    └── cloud_debug_app.py    # helper for debugging Streamlit Cloud
+├── src/                    # persistent Chroma database used by Streamlit
+│   ├── logs/
+│   │   └── .gitkeep 
+│   ├── backend.py            # Streamlit Backend
+│   ├── main.py               # Streamlit UI
+│   └── cloud_debug_app.py    # helper for debugging Streamlit Cloud
+└── store/
+    ├── UID/
+    ├── chroma.sqlite3
+    └── manifest.json         # manifest containing the current database information
 
 ```
 
@@ -83,6 +80,13 @@ Run **Notebook 2** (`2_indexing_and_retrieval.ipynb`)
 Run **Notebook 3** (`3_answering_and_evaluation.ipynb`)  
 → queries Chroma and generates structured JSON answers using GPT-4o-mini.
 
+If you made any changes to the notebook update the **App Backend**
+```bash
+  jupyter nbconvert --to script notebooks/3_answer_generation.ipynb --output "backend" --output-dir=src --TemplateExporter.exclude_markdown=True --TagRemovePreprocessor.enabled=True --TagRemovePreprocessor.remove_cell_tags='["noexport"]'
+```
+> 👉 **Note** \
+> Any code fields that shouldn't be exported into the backend should be tagged as `noexport`. Make sure the ones you do export are actually needed for the app backend.
+
 ### 6️⃣ Launch Streamlit app
 Run the following command on your terminal
 ```bash
@@ -93,7 +97,7 @@ The application's GUI should now be available under http://localhost:8501/
 ### 7️⃣ Deployment to Streamlit Cloud (optional)
 
 Push to GitHub. \
-The app automatically builds its own Chroma index if missing. \
+The app automatically builds its own Chroma index if missing. 
 > 👉 **Note** \
 > Add your `OAI_TOKEN` to Streamlit Secrets.
 
@@ -103,9 +107,3 @@ The app automatically builds its own Chroma index if missing. \
 - Logs and JSON files are **git-ignored** — they're rebuilt locally.
 - Secrets are **git-ignored** due to security concerns.
 - The app uses OpenAI embeddings (`dimension = 1536`). Mixing embedding models requires re-indexing.
-- After editing any of the notebooks, generate the respective Python script:
-  ```bash
-  jupyter nbconvert --to script notebooks/2_indexing_and_retrieval.ipynb --output "indexing_and_retrieval" --output-dir=src --TemplateExporter.exclude_markdown=True --TagRemovePreprocessor.enabled=True --TagRemovePreprocessor.remove_cell_tags='["noexport"]'
-  ```
-  > 👉 **Note** \
-  > Make sure you keep the _ character in front of the output file name, Python has issues when a script begins with a number
