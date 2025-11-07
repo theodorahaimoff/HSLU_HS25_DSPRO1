@@ -7,10 +7,10 @@
 import os, json, logging
 from pathlib import Path
 import streamlit as st
-import chromadb
 from chromadb.config import Settings
 from openai import OpenAI
-from jsonschema import validate, ValidationError
+from jsonschema import validate
+from functools import lru_cache
 
 
 # Retrieval knobs
@@ -36,12 +36,17 @@ def get_base_dir() -> Path:
         # __file__ not defined (e.g., in Jupyter or interactive)
         return Path(os.getcwd()).resolve()
 
+@lru_cache(maxsize=1)
 def load_manifest():
-    base_dir =  get_base_dir()
-    store_dir = (base_dir.parent / "store").resolve()
-    mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
-    mf["store_dir"] = str(store_dir / mf["dir"])         # absolute path to the versioned dir
-    return mf
+    try:
+        base_dir =  get_base_dir()
+        store_dir = (base_dir.parent / "store").resolve()
+        mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
+        mf["store_dir"] = str(store_dir / mf["dir"])         # absolute path to the versioned dir
+        return mf
+    except Exception as e:
+        st.sidebar.error(f"Manifest error: {e}")
+        return None
 
 def _mf():
     return load_manifest()
@@ -64,6 +69,7 @@ def _expected_dim():
 # In[7]:
 
 
+@lru_cache(maxsize=1)
 def _get_oai_token():
     try:
         s = dict(st.secrets)
@@ -87,6 +93,7 @@ def embed_query(text: str) -> list:
 
 
 def get_client():
+    import chromadb
     return chromadb.PersistentClient(path=_chroma_dir(), settings=CHROMA_SETTINGS)
 
 def get_collection(name: str | None = None):
