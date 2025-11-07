@@ -46,7 +46,7 @@ def get_base_dir() -> Path:
 def load_manifest():
     try:
         base_dir =  get_base_dir()
-        store_dir = (base_dir.parent / "store").resolve()
+        store_dir = base_dir / "store"
         mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
         mf["store_dir"] = str(store_dir / mf["dir"])         # absolute path to the versioned dir
         return mf

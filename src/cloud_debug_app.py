@@ -1,6 +1,8 @@
-import os
+import os, json
 import streamlit as st
 from openai import OpenAI
+import chromadb
+from pathlib import Path
 
 st.set_page_config(page_title="Cloud Debug", page_icon="🛠️")
 
@@ -36,3 +38,23 @@ if st.button("Ping OpenAI"):
             st.code(r.choices[0].message.content)
     except Exception as e:
         st.exception(e)
+
+store_dir = Path(__file__).resolve().parent / "store"
+mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
+
+MODEL_NAME = mf["model"]
+COLLECTION = mf["collection"]
+EXPECTED_DIM = mf["dim"]
+
+def get_client():
+    return chromadb.PersistentClient(path=store_dir)
+
+def get_collection(name: str | None = None):
+    name = name or COLLECTION
+    col = get_client().get_collection(name)
+    return col
+
+st.write("Chroma manifest present:", bool(mf))
+st.write("Chroma collection name:", COLLECTION)
+st.write("Chroma client present:", bool(get_client()))
+st.write("Chroma collection present:", bool(get_collection()))
