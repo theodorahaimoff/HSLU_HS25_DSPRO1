@@ -46,7 +46,7 @@ MODEL_NAME = mf["model"]
 COLLECTION_NAME = mf["collection"]
 EXPECTED_DIM = mf["dim"]
 DIR = mf["dir"]
-#COLLECTION_PATH = store_dir / DIR
+COLLECTION_PATH = store_dir / DIR
 
 def get_client():
     return chromadb.PersistentClient(path=DIR)
@@ -61,5 +61,6 @@ def get_collection(name: str | None = None):
 st.write("Chroma manifest present:", bool(mf))
 st.write("Chroma collection name:", COLLECTION_NAME)
 st.write("Chroma directory name:", DIR)
+st.write("Chroma directory name:", COLLECTION_PATH)
 #st.write("Chroma directory exists:", COLLECTION_PATH.exists())
 #st.write("Chroma collection has value:", COLLECTION is not None)
