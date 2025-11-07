@@ -18,7 +18,7 @@
 
 # ⚙️ Imports & Paths
 
-# In[1]:
+# In[9]:
 
 
 import os, json, hashlib
@@ -56,7 +56,7 @@ logging.getLogger("chromadb").setLevel(logging.ERROR)
 
 # 🧱 Chroma helpers
 
-# In[2]:
+# In[10]:
 
 
 # Disable analytics / telemetry
@@ -68,10 +68,7 @@ def get_client():
 
 def get_collection(client=None, name=CHROMA_COLLECTION):
     client = client or get_client()
-    try:
-        return client.get_collection(name)
-    except Exception:
-        return client.create_collection(name)
+    return client.get_or_create_collection(name)
 
 def list_collections():
     client = get_client()
@@ -88,7 +85,7 @@ def wipe_collection(name=CHROMA_COLLECTION):
 
 # 🧠 Embedder init
 
-# In[3]:
+# In[11]:
 
 
 _embedder = None
@@ -102,7 +99,7 @@ def embedder():
 
 # 📥 Load JSON files
 
-# In[4]:
+# In[12]:
 
 
 def load_article_jsons(root: Path = DATA_JSON):
@@ -147,7 +144,7 @@ if articles:
 
 # 🏗️ Build/Update index
 
-# In[5]:
+# In[13]:
 
 
 def build_index(items, batch_size=64):
@@ -175,7 +172,6 @@ def build_index(items, batch_size=64):
     print("Done. Chunks in collection:", col.count())
     return col
 
-wipe_collection(CHROMA_COLLECTION)
 collection = build_index(articles)
 
 
@@ -187,7 +183,7 @@ collection = build_index(articles)
 
 # 🧰 Retrieve & (optional) Re-rank
 
-# In[6]:
+# In[14]:
 
 
 def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, collection_name: str = CHROMA_COLLECTION):
@@ -236,7 +232,7 @@ def pack_context(retrieved, max_chars=8000, per_source_cap=3):
 # - metadata is present for citations.
 # 
 
-# In[7]:
+# In[15]:
 
 
 queries = [
@@ -255,7 +251,7 @@ for q in queries:
 
 # 👀  Inspect one context block
 
-# In[8]:
+# In[16]:
 
 
 sample_q = "Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?"
