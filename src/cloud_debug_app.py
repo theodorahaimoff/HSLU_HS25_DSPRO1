@@ -57,5 +57,4 @@ def get_collection(name: str | None = None):
 
 st.write("Chroma manifest present:", bool(mf))
 st.write("Chroma collection name:", COLLECTION)
-st.write("Chroma client present:", bool(get_client()))
 st.write("Chroma collection present:", bool(get_collection()))
