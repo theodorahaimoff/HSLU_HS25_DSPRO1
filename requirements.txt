@@ -1,5 +1,5 @@
 streamlit
-openai==2.7.1
+openai
 chromadb
 sentence-transformers==3.2.1
 transformers==4.45.1
