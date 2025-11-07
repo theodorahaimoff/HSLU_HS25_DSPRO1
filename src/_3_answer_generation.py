@@ -22,26 +22,33 @@ import os, re, json, logging
 from pathlib import Path
 
 import chromadb
-from sentence_transformers import SentenceTransformer
 from openai import OpenAI
 from jsonschema import validate, ValidationError
-
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 try:
-    import streamlit as st
-    _SECRETS = getattr(st, "secrets", {})
+    import streamlit as st  # noqa
 except Exception:
-    _SECRETS = {}
+    st = None
 
-OAI_TOKEN = (
-    _SECRETS.get("env", {}).get("OAI_TOKEN")
-    or os.getenv("OAI_TOKEN")
-    or ""
-)
+def _get_oai_token():
+    try:
+        s = dict(st.secrets)
+        return s.get("env", {}).get("OAI_TOKEN") or os.getenv("OAI_TOKEN") or ""
+    except Exception:
+        return os.getenv("OAI_TOKEN") or ""
+
+OAI_TOKEN = _get_oai_token()
 
 if not OAI_TOKEN:
-    raise EnvironmentError(
-        "OPENAI token not found. Set OAI_TOKEN in env or Streamlit secrets."
-    )
+    if st is not None:
+        # stop Streamlit cleanly with a visible error
+        st.error("OpenAI Token fehlt. Lege es in `.streamlit/secrets.toml` unter `[env].OAI_TOKEN` "
+                 "oder als Env-Var `OAI_TOKEN` an.")
+        st.stop()
+    else:
+        # non-Streamlit context (CLI/tests)
+        raise EnvironmentError("OAI_TOKEN missing. Set env var or Streamlit secret.")
 
 OAI_CLIENT = OpenAI(api_key=OAI_TOKEN)
 OAI_MODEL = "gpt-4o-mini"
@@ -91,6 +98,7 @@ _embedder = None
 def embedder():
     global _embedder
     if _embedder is None:
+        from sentence_transformers import SentenceTransformer
         _embedder = SentenceTransformer(EMBED_MODEL_NAME)
     return _embedder
 
@@ -120,6 +128,8 @@ if __name__ == "__main__":
 # In[5]:
 
 
+ENABLE_RERANK = os.getenv("ENABLE_RERANK", "0") == "1"
+
 def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, collection_name: str = CHROMA_COLLECTION):
     col = get_collection(collection_name)
     q_emb = embedder().encode([query], normalize_embeddings=True).tolist()[0]
@@ -130,14 +140,16 @@ def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, collection_name: st
     dists = res.get('distances', [[]])[0]
     prelim = list(zip(docs, metas, dists))
 
-    # Optional: cross-encoder rerank (commented out; requires transformers/torch)
-    try:
-        from sentence_transformers import CrossEncoder
-        reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
-        scores = reranker.predict([(query, d) for d,_,_ in prelim]).tolist()
-        prelim = [p for p,_ in sorted(zip(prelim, scores), key=lambda x: x[1], reverse=True)]
-    except Exception:
-        prelim = sorted(prelim, key=lambda x: x[2])  # distance ascending
+    if ENABLE_RERANK:
+        try:
+            from sentence_transformers import CrossEncoder
+            reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+            scores = reranker.predict([(query, d) for d,_,_ in prelim]).tolist()
+            prelim = [p for p,_ in sorted(zip(prelim, scores), key=lambda x: x[1], reverse=True)]
+        except Exception:
+            prelim = sorted(prelim, key=lambda x: x[2])
+    else:
+        prelim = sorted(prelim, key=lambda x: x[2])
 
     return prelim[:k]
 
@@ -251,8 +263,8 @@ def answer_with_openai(question: str, perspective: str, k=TOP_K, model=OAI_MODEL
         resp = OAI_CLIENT.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": prompt},
-                {"role": "user", "content":
+                {"role": "system", "content": [{"type": "text", "text": prompt}]},
+                {"role": "user",   "content": [{"type": "text", "text":
                     "Beantworte die Frage gemäss obigen Vorgaben. "
                     "Fülle die Felder des JSON-Schemas aus. "
                     "Sprache: Deutsch (Schweiz), Du-Form. "
@@ -260,7 +272,7 @@ def answer_with_openai(question: str, perspective: str, k=TOP_K, model=OAI_MODEL
                     "jeder Eintrag genau EIN Schritt, EINE Zeile, KEINE Nummerierung oder Zeilenumbrüche. "
                     "Für 'forms': gib die genauen offiziellen Bezeichnungen aus dem CONTEXT zurück (leer, wenn keine). "
                     "Gib NUR JSON zurück."
-                },
+                }]}
             ],
             temperature=0,
             response_format={"type": "json_object"}

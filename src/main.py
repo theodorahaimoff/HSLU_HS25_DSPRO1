@@ -14,7 +14,6 @@ import streamlit as st
 import chromadb
 from _3_answer_generation import answer_with_openai
 
-
 # ============================================================
 # Configuration
 # ============================================================
@@ -139,7 +138,6 @@ def generate_answer(question: str, perspective: str) -> Tuple[str, str, str, str
 # ============================================================
 # Streamlit UI
 # ============================================================
-
 with st.form("query_form"):
     question = st.text_area(
         "Gib deine Rechtsfrage ein:",
