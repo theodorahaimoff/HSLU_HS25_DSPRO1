@@ -10,3 +10,8 @@ headingFontSizes = ["36px", "24px", "20px"]
 [server]
 fileWatcherType = "poll"
 
+[env]
+CHROMA_TELEMETRY_ENABLED = "false"
+POSTHOG_DISABLED = "true"
+ANONYMIZED_TELEMETRY = "false"
+
