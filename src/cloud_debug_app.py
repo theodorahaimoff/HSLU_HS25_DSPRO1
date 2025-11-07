@@ -45,7 +45,7 @@ mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
 MODEL_NAME = mf["model"]
 COLLECTION_NAME = mf["collection"]
 EXPECTED_DIM = mf["dim"]
-COLLECTION_PATH = store_dir / COLLECTION_NAME
+#COLLECTION_PATH = store_dir / COLLECTION_NAME
 
 def get_client():
     return chromadb.PersistentClient(path=COLLECTION_PATH)
