@@ -6,8 +6,6 @@ The **Swiss Rental-Law Assistant** is a Retrieval-Augmented Generation (**RAG**)
 It uses **OpenAI** embeddings to index articles from the Obligationenrecht (OR), Verordnung über die Miete und Pacht von Wohn- und Geschäftsräumen (VMWG), and Strafgesetzbuch (StGB) into a persistent **ChromaDB** store. \
 When a user asks a question, the system retrieves the most relevant legal articles, builds a concise context, and generates a structured, grounded answer using the **GPT-4o-mini** model.
 
----
-
 ## 🗂️ Repo Layout
 ```bash
 HSLU_HS25_DSPRO1/
@@ -38,8 +36,6 @@ HSLU_HS25_DSPRO1/
 
 ```
 
----
-
 ## ⚙️ Setup (local)
 
 ```bash
@@ -54,8 +50,6 @@ Add your OpenAI API key to .streamlit/secrets.toml:
 [env]
 OAI_TOKEN = "sk-s..."
 ```
-
----
 
 ## 🧩 Initialisation
 If you're not running the application it the first time, skip to **step 6** 
@@ -102,8 +96,6 @@ Push to GitHub. \
 The app automatically builds its own Chroma index if missing. 
 > 👉 **Note** \
 > Add your `OAI_TOKEN` to Streamlit Secrets.
-
----
 
 ## 🤝 Notes for Collaborators
 - Logs and JSON files are **git-ignored** — they're rebuilt locally.
