@@ -10,7 +10,6 @@ Hugging Face Inference API for grounded answer generation.
 import logging, re
 from pathlib import Path
 import streamlit as st
-from typing import Iterable, Tuple
 from app_backend import generate_answer
 
 # ============================================================
