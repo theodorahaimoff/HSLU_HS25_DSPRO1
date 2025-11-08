@@ -11,7 +11,7 @@ import logging
 from pathlib import Path
 import streamlit as st
 from typing import Iterable, Tuple
-from app_backend import answer_with_openai
+#from app_backend import answer_with_openai
 
 # Retrieval knobs
 TOP_K  = 5
