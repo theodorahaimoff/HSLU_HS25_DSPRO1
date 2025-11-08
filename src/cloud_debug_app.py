@@ -39,6 +39,7 @@ if st.button("Ping OpenAI"):
     except Exception as e:
         st.exception(e)
 
+"""
 store_dir = Path().parent.resolve() / "store"
 mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
 
@@ -63,3 +64,4 @@ st.write("Chroma directory name:", DIR)
 st.write("Chroma directory name:", store_dir)
 st.write("Chroma directory name:", COLLECTION_PATH)
 st.write("Chroma collection has value:", COLLECTION.count())
+"""
