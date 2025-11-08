@@ -23,42 +23,23 @@ logger = logging.getLogger("SwissRentalLawApp")
 # In[6]:
 
 
-def get_base_dir() -> Path:
-    """
-    Returns the project base directory that works both:
-    - in normal scripts (via __file__)
-    - in notebooks (via current working directory)
-    """
-    try:
-        return Path().parent.resolve()
-    except NameError:
-        # __file__ not defined (e.g., in Jupyter or interactive)
-        return Path(os.getcwd()).resolve()
+store_dir = Path().parent.resolve() / "store"
+mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
 
-store_dir = get_base_dir()/ "store"
+MODEL_NAME = mf["model"]
+COLLECTION_NAME = mf["collection"]
+EXPECTED_DIM = mf["dim"]
+DIR = mf["dir"]
+COLLECTION_PATH = store_dir / DIR
 
-def load_manifest():
-    try:
-        mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
-        return mf
-    except Exception as e:
-        raise EnvironmentError("Manifest error" + str(e))
+def get_client():
+    return chromadb.PersistentClient(path=str(COLLECTION_PATH))
 
-def _mf():
-    return load_manifest()
+def get_collection(name=COLLECTION_NAME):
+    client = get_client()
+    return client.get_or_create_collection(name)
 
-def _embedding_model_name():
-    return _mf()["model"]
-
-def _collection_name():
-    return _mf()["collection"]
-
-def _chroma_dir():
-    return store_dir / _mf()["dir"]
-
-def _expected_dim():
-    return _mf()["dim"]
-
+COLLECTION = get_collection()
 
 # In[7]:
 
@@ -78,29 +59,14 @@ def get_oai_client():
 
 def embed_query(text: str) -> list:
     client = get_oai_client()
-    resp = client.embeddings.create(model=_embedding_model_name(), input=text)
+    resp = client.embeddings.create(model=MODEL_NAME, input=text)
     return resp.data[0].embedding
-
-
-# In[8]:
-
-
-def get_client():
-    return chromadb.PersistentClient(path=str(_chroma_dir()))
-
-def get_col(name: str | None = None):
-    name = name or _collection_name()
-    client = get_client()
-    col = client.get_collection(name)
-    logger.info(f"Loaded Chroma collection '{name}' with {col.count()} entries.")
-    return col
 
 
 # In[11]:
 
 
-def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, collection_name: str | None = None):
-    col = get_col(collection_name)
+def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, col = COLLECTION):
     q_emb = embed_query(query)
     res = col.query(query_embeddings=[q_emb], n_results=k_pre, include=['documents','metadatas','distances'])
     docs  = res.get('documents', [[]])[0]
