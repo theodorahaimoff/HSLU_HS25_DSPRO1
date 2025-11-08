@@ -10,6 +10,7 @@ import chromadb
 from openai import OpenAI
 from jsonschema import validate
 from typing import Iterable, Tuple
+import streamlit as st
 
 # Retrieval knobs
 TOP_K  = 5
@@ -63,7 +64,6 @@ def _expected_dim():
 
 
 def _get_oai_token():
-    import streamlit as st
     try:
         s = dict(st.secrets)
         return s.get("env", {}).get("OAI_TOKEN") or os.getenv("OAI_TOKEN") or ""

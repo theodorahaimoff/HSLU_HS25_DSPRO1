@@ -7,16 +7,13 @@ It uses a persistent Chroma vector store for semantic retrieval and the
 Hugging Face Inference API for grounded answer generation.
 """
 
-import logging
-from pathlib import Path
-import streamlit as st
-from backend import generate_answer
+from backend import *
 
 # ============================================================
 # Logging
 # ============================================================
 
-LOG_DIR = Path(__file__).resolve().parent / "logs"
+LOG_DIR = Path().resolve() / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 LOG_FILE = LOG_DIR / "app.log"
 
