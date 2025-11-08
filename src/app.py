@@ -1,85 +1,65 @@
-"""
-Swiss Rental-Law Assistant (Streamlit App)
-------------------------------------------
-
-This app provides an interactive interface for querying Swiss rental law.
-It uses a persistent Chroma vector store for semantic retrieval and the
-OpenAI API for grounded answer generation.
-"""
-
-import logging
-from pathlib import Path
+import os, json
 import streamlit as st
-from app_backend import generate_answer
+from openai import OpenAI
+import chromadb
+from pathlib import Path
 
-# ============================================================
-# Logging
-# ============================================================
+st.set_page_config(page_title="Cloud Debug", page_icon="🛠️")
 
-LOG_DIR = Path().resolve()  / "logs"
-LOG_DIR.mkdir(exist_ok=True)
-LOG_FILE = LOG_DIR / "app.log"
+# Secrets + env print
+def _mask(t):
+    return t[:4] + "…" + t[-4:] if t and len(t) > 12 else "(unset)"
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
-    handlers=[
-        logging.FileHandler(LOG_FILE, encoding="utf-8"),
-        logging.StreamHandler()
-    ],
-    force=True
-)
+OAI = (os.getenv("OAI_TOKEN") or
+       (dict(st.secrets).get("env", {}).get("OAI_TOKEN") if st.secrets else ""))
 
-logger = logging.getLogger("SwissRentalLawApp")
-logger.info("Starting Swiss Rental-Law Assistant...")
-logging.getLogger("torch").setLevel(logging.INFO)
-logging.getLogger("chromadb").setLevel(logging.DEBUG)
+st.write("✅ Streamlit running")
+st.write("OpenAI token present:", bool(OAI))
+st.write("OpenAI token (masked):", _mask(OAI))
 
-# ============================================================
-# Configuration
-# ============================================================
-st.set_page_config(
-    page_title="Schweizer Mietrechts-Assistent",
-    page_icon="⚖️",
-    layout="centered"
-)
-st.title("⚖️ Schweizer Mietrechts-Assistent")
-st.markdown(
-    "Der Schweizer Mietrechts-Assistent ist ein KI-gestütztes Tool, das Fragen zum "
-    "**Schweizer Mietrecht** beantwortet. Die Antworten basieren auf juristischen Quellen, "
-    "werden jedoch automatisch generiert und sind **keine** rechtliche Beratung. "
-    "Sie dienen lediglich als Orientierungshilfe."
-)
+# Show runtime info
+import sys, platform
+st.write("Python:", sys.version)
+st.write("Platform:", platform.platform())
 
-# ============================================================
-# Streamlit UI
-# ============================================================
-with st.form("query_form"):
-    question = st.text_area(
-        "Gib deine Rechtsfrage ein:",
-        placeholder="Beispiel: Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?",
-        height=100
-    )
-    perspective = st.selectbox("Perspektive", ["Mieter:in", "Vermieter:in"])
-    submitted = st.form_submit_button("Antwort generieren ⚙️")
+# Try a minimal OpenAI ping (no JSON mode to reduce failure surface)
+if st.button("Ping OpenAI"):
+    try:
+        client = OpenAI(api_key=OAI) if OAI else None
+        if not client:
+            st.error("No OAI token.")
+        else:
+            r = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": "pong"}],
+                temperature=0
+            )
+            st.success("OpenAI reachable ✅")
+            st.code(r.choices[0].message.content)
+    except Exception as e:
+        st.exception(e)
 
+store_dir = Path().parent.resolve() / "store"
+mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
 
-if submitted and question.strip():
-    with st.spinner("Antwort wird generiert, bitte warten..."):
-        try:
-            ans, steps, forms, sources = generate_answer(question, perspective)
-            logger.debug(f"Answer generated successfully for question: {question[:60]}")
+MODEL_NAME = mf["model"]
+COLLECTION_NAME = mf["collection"]
+EXPECTED_DIM = mf["dim"]
+DIR = mf["dir"]
+COLLECTION_PATH = store_dir / DIR
 
-            with st.container(border=True):
-                st.header("💡 Antwort")
-                st.markdown(ans)
-                st.subheader("✅ Schritte/Optionen")
-                st.markdown(steps)
-                st.subheader("📄 Formulare")
-                st.markdown(forms)
-                st.subheader("📚 Quellen")
-                st.markdown(sources)
+def get_collection(name=COLLECTION_NAME):
+    client = chromadb.PersistentClient(path=str(COLLECTION_PATH))
+    return client.get_collection(name)
 
-        except Exception:
-            st.error("Ein unerwarteter Fehler ist aufgetreten. Bitte siehe Logdatei für Details.")
-            st.stop()
+COLLECTION = get_collection()
+
+st.write("Chroma manifest present:", bool(mf))
+st.write("Chroma collection name:", COLLECTION_NAME)
+st.write("Chroma directory name:", DIR)
+st.write("Chroma directory name:", store_dir)
+st.write("Chroma directory name:", COLLECTION_PATH)
+st.write("Chroma collection has value:", COLLECTION.count())
+
+#embed = client.embeddings.create(model=MODEL_NAME, input="Kündigungsfrist")
+#st.write("Embedding present:", embed)
