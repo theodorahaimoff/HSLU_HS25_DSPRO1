@@ -88,10 +88,10 @@ def embed_query(text: str) -> list:
 def get_client():
     return chromadb.PersistentClient(path=str(_chroma_dir()))
 
-def get_collection(name: str | None = None):
+def get_col(name: str | None = None):
     name = name or _collection_name()
     client = get_client()
-    col = client.get_or_create_collection(name)
+    col = client.get_collection(name)
     logger.info(f"Loaded Chroma collection '{name}' with {col.count()} entries.")
     return col
 
@@ -100,7 +100,7 @@ def get_collection(name: str | None = None):
 
 
 def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, collection_name: str | None = None):
-    col = get_collection(collection_name)
+    col = get_col(collection_name)
     q_emb = embed_query(query)
     res = col.query(query_embeddings=[q_emb], n_results=k_pre, include=['documents','metadatas','distances'])
     docs  = res.get('documents', [[]])[0]
