@@ -7,11 +7,11 @@ It uses a persistent Chroma vector store for semantic retrieval and the
 Hugging Face Inference API for grounded answer generation.
 """
 
-import logging
+import logging, re
 from pathlib import Path
 import streamlit as st
 from typing import Iterable, Tuple
-from cloud_debug_app import *
+from app_backend import answer_with_openai
 
 # Retrieval knobs
 TOP_K  = 5
