@@ -53,7 +53,7 @@ def get_client():
 
 def get_collection(name=COLLECTION_NAME):
     client = get_client()
-    return client.get_or_create_collection(name)
+    return client.get_collection(name)
 
 COLLECTION = get_collection()
 
