@@ -49,14 +49,13 @@ DIR = mf["dir"]
 COLLECTION_PATH = store_dir / DIR
 
 def get_client():
-    return chromadb.PersistentClient(path=store_dir)
+    return chromadb.PersistentClient(path=str(COLLECTION_PATH))
 
-def get_collection(name: str | None = None):
-    name = name or COLLECTION_NAME
-    col = get_client().get_collection(name)
-    return col
+def get_collection(name=COLLECTION_NAME):
+    client = get_client()
+    return client.get_or_create_collection(name)
 
-#COLLECTION = get_collection()
+COLLECTION = get_collection()
 
 st.write("Chroma manifest present:", bool(mf))
 st.write("Chroma collection name:", COLLECTION_NAME)
