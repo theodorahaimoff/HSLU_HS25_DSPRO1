@@ -7,13 +7,9 @@
 import os, json, logging, re
 from pathlib import Path
 from typing import Iterable, Tuple
+import chromadb
 from openai import OpenAI
 from jsonschema import validate
-
-try:
-    import chromadb
-except Exception as e:
-    raise EnvironmentError("ChromaDB couldn’t be imported."+ str(e))
 
 # Retrieval knobs
 TOP_K  = 5
