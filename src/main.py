@@ -8,12 +8,12 @@ Hugging Face Inference API for grounded answer generation.
 """
 
 import os, json, logging, re
-from openai import OpenAI
 from jsonschema import validate
 from typing import Iterable, Tuple
 import streamlit as st
 from pathlib import Path
 import chromadb
+from openai import OpenAI
 
 # Retrieval knobs
 TOP_K  = 5
