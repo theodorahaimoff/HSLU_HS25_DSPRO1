@@ -25,16 +25,16 @@ HSLU_HS25_DSPRO1/
 │   ├── 1_data_preparation.ipynb
 │   ├── 2_indexing_and_retrieval.ipynb
 │   └── 3_answer_generation.ipynb
-├── src/                          # persistent Chroma database used by Streamlit
+├── src/                          
 │   ├── logs/
 │   │   └── .gitkeep 
 │   ├── app_backend.py            # Streamlit Backend (generated from notebook)
 │   ├── app.py                    # Streamlit UI
 │   └── cloud_debug_app.py        # helper for debugging Streamlit Cloud
-└── store/
+└── store/                        # persistent Chroma database used by Streamlit
     ├── UID/
     ├── chroma.sqlite3
-    └── manifest.json         # manifest containing the current database information
+    └── manifest.json         # manifest containing the database information of the productive application
 
 ```
 
