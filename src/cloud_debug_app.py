@@ -56,7 +56,7 @@ def get_collection(name: str | None = None):
     col = get_client().get_collection(name)
     return col
 
-COLLECTION = get_collection()
+#COLLECTION = get_collection()
 
 st.write("Chroma manifest present:", bool(mf))
 st.write("Chroma collection name:", COLLECTION_NAME)
