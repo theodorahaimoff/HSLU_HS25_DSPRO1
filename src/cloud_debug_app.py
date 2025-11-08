@@ -22,6 +22,7 @@ import sys, platform
 st.write("Python:", sys.version)
 st.write("Platform:", platform.platform())
 
+
 # Try a minimal OpenAI ping (no JSON mode to reduce failure surface)
 if st.button("Ping OpenAI"):
     try:
@@ -39,6 +40,7 @@ if st.button("Ping OpenAI"):
     except Exception as e:
         st.exception(e)
 
+
 store_dir = Path().parent.resolve() / "store"
 mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
 
@@ -47,6 +49,12 @@ COLLECTION_NAME = mf["collection"]
 EXPECTED_DIM = mf["dim"]
 DIR = mf["dir"]
 COLLECTION_PATH = store_dir / DIR
+st.write("Chroma manifest present:", bool(mf))
+st.write("Chroma collection name:", COLLECTION_NAME)
+st.write("Chroma directory name:", DIR)
+st.write("Chroma directory name:", store_dir)
+st.write("Chroma directory name:", COLLECTION_PATH)
+
 
 def get_collection(name=COLLECTION_NAME):
     client = chromadb.PersistentClient(path=str(COLLECTION_PATH))
@@ -54,11 +62,7 @@ def get_collection(name=COLLECTION_NAME):
 
 COLLECTION = get_collection()
 
-st.write("Chroma manifest present:", bool(mf))
-st.write("Chroma collection name:", COLLECTION_NAME)
-st.write("Chroma directory name:", DIR)
-st.write("Chroma directory name:", store_dir)
-st.write("Chroma directory name:", COLLECTION_PATH)
+
 st.write("Chroma collection has value:", COLLECTION.count())
 
 #embed = client.embeddings.create(model=MODEL_NAME, input="Kündigungsfrist")
