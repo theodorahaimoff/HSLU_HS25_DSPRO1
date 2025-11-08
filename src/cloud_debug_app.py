@@ -64,5 +64,5 @@ st.write("Chroma directory name:", store_dir)
 st.write("Chroma directory name:", COLLECTION_PATH)
 st.write("Chroma collection has value:", COLLECTION.count())
 
-embed = client.embeddings.create(model=MODEL_NAME)
-st.write("Embedding present:", bool(embed))
+embed = client.embeddings.create(model=MODEL_NAME, input="Kündigungsfrist")
+st.write("Embedding present:", embed)
