@@ -1,9 +1,10 @@
-# Rental Law RAG
+# 🏠 Swiss Rental-Law Assistant
 
 **What it does**  
 
-Retrieval-Augmented QA system for Swiss rental law based on Obligationenrecht (OR), Verordnung über die Miete und Pacht von Wohn- und Geschäftsräumen (VMWG), and Strafgesetzbuch (StGB).
-It builds a persistent ChromaDB index using OpenAI embeddings and generates answers via the GPT-4o-mini model.
+The **Swiss Rental-Law Assistant** is a Retrieval-Augmented Generation (**RAG**) application that answers legal questions about Swiss rental law. \
+It uses **OpenAI** embeddings to index articles from the Obligationenrecht (**OR**), Verordnung über die Miete und Pacht von Wohn- und Geschäftsräumen (**VMWG**), and Strafgesetzbuch (**StGB**) into a persistent **ChromaDB** store. \
+When a user asks a question, the system retrieves the most relevant legal articles, builds a concise context, and generates a structured, grounded answer using the **GPT-4o-mini** model.
 
 ---
 
@@ -56,7 +57,8 @@ OAI_TOKEN = "sk-s..."
 
 ---
 
-## 🧩 Usage
+## 🧩 Initialisation
+If you're not running the application it the first time, skip to **step 6** 
 
 ### 1️⃣ Add PDFs
 Put the 3 law PDFs into `data/raw/`:
