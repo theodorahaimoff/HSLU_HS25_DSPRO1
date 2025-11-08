@@ -42,9 +42,9 @@ if st.button("Ping OpenAI"):
 """
 
 def get_base_dir():
-    base = Path().parent.resolve()
+    base = Path().resolve().parent
     if not base:
-        return Path().resolve().parent
+        return Path().parent.resolve()
     return base
 
 store_dir = get_base_dir() / "store"
