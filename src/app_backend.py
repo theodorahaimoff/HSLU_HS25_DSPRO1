@@ -32,33 +32,20 @@ EXPECTED_DIM = mf["dim"]
 DIR = mf["dir"]
 COLLECTION_PATH = store_dir / DIR
 
-def get_client():
-    return chromadb.PersistentClient(path=str(COLLECTION_PATH))
-
 def get_collection(name=COLLECTION_NAME):
-    client = get_client()
+    client = chromadb.PersistentClient(path=str(COLLECTION_PATH))
     return client.get_collection(name)
 
 COLLECTION = get_collection()
 
 # In[7]:
 
+OAI = (os.getenv("OAI_TOKEN") or
+       (dict(st.secrets).get("env", {}).get("OAI_TOKEN") if st.secrets else ""))
 
-def _get_oai_token():
-    try:
-        s = dict(st.secrets)
-        return s.get("env", {}).get("OAI_TOKEN") or os.getenv("OAI_TOKEN") or ""
-    except Exception:
-        return os.getenv("OAI_TOKEN") or ""
-
-def get_oai_client():
-    key = _get_oai_token()
-    if not key:
-        raise EnvironmentError("OpenAI token missing (set OAI_TOKEN or OPENAI_API_KEY).")
-    return OpenAI(api_key=key)
+client = OpenAI(api_key=OAI) if OAI else None
 
 def embed_query(text: str) -> list:
-    client = get_oai_client()
     resp = client.embeddings.create(model=MODEL_NAME, input=text)
     return resp.data[0].embedding
 
@@ -154,8 +141,6 @@ def answer_with_openai(question: str, perspective: str, k=TOP_K, model="gpt-4o-m
     context = pack_context(hits, max_chars=max_chars)
 
     prompt = PROMPT.format(context=context, question=f"Perspective: {perspective}, Question: {question}")
-
-    client = get_oai_client()
     resp = client.chat.completions.create(
         model=model,
         messages=[
