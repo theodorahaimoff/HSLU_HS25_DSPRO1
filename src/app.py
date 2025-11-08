@@ -1,7 +1,7 @@
 import os, json
 import streamlit as st
 #from openai import OpenAI
-#import chromadb
+import chromadb
 from pathlib import Path
 
 st.set_page_config(page_title="Cloud Debug", page_icon="🛠️")
@@ -55,7 +55,7 @@ st.write("Chroma directory name:", DIR)
 st.write("Chroma directory name:", store_dir)
 st.write("Chroma directory name:", COLLECTION_PATH)
 
-"""
+
 def get_collection(name=COLLECTION_NAME):
     client = chromadb.PersistentClient(path=str(COLLECTION_PATH))
     return client.get_collection(name)
@@ -64,7 +64,7 @@ COLLECTION = get_collection()
 
 
 st.write("Chroma collection has value:", COLLECTION.count())
-"""
+
 
 #embed = client.embeddings.create(model=MODEL_NAME, input="Kündigungsfrist")
 #st.write("Embedding present:", embed)
