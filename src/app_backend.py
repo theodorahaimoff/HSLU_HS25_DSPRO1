@@ -17,7 +17,7 @@
 
 # ## 📦 Inputs & Outputs
 
-# In[5]:
+# In[24]:
 
 
 import os, json, logging, re
@@ -33,27 +33,15 @@ TOP_K  = 5
 PRE_K  = 20
 MAX_CTX_CHARS = 8000
 
-#logger = logging.getLogger("SwissRentalLawApp")
+logger = logging.getLogger("SwissRentalLawApp")
 
 
 # ## 🧱 Chroma configuration
 
-# In[6]:
+# In[25]:
 
 
-def get_base_dir() -> Path:
-    """
-    Returns the project base directory that works both:
-    - in normal scripts (via __file__)
-    - in notebooks (via current working directory)
-    """
-    try:
-        return Path().parent.resolve()
-    except NameError:
-        # __file__ not defined (e.g., in Jupyter or interactive)
-        return Path(os.getcwd()).resolve()
-
-store_dir = get_base_dir() / "store"
+store_dir = Path().resolve().parent / "store"
 mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
 
 MODEL_NAME = mf["model"]
@@ -71,7 +59,7 @@ COLLECTION = get_collection()
 
 # ### Chroma helper functions
 
-# In[11]:
+# In[28]:
 
 
 def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, col = COLLECTION):
@@ -101,7 +89,7 @@ def pack_context(retrieved, max_chars=MAX_CTX_CHARS, per_source_cap=3):
 
 # ## 🧠 OpenAI client
 
-# In[7]:
+# In[29]:
 
 
 OAI = (os.getenv("OAI_TOKEN") or
@@ -131,7 +119,7 @@ def embed_query(text: str) -> list:
 # ```
 # The answer will then be validated with `jsonschema`
 
-# In[12]:
+# In[30]:
 
 
 # --- Prompt (escaped braces; single {question}) ---
@@ -227,7 +215,7 @@ def answer_with_openai(question: str, perspective: str, k=TOP_K, model="gpt-4o-m
 # ## 🔧 Answer Generation & Formatting
 # We query the OpenAI model and reformat the answers to provide a unified and unchanging design
 
-# In[ ]:
+# In[31]:
 
 
 def sanitize_step(step: str) -> str:
@@ -245,7 +233,7 @@ def format_bulleted(items: Iterable[str]) -> str:
     return "\n" + "\n".join(f"- {t}" for t in items) if items else ""
 
 
-# In[ ]:
+# In[32]:
 
 
 def generate_answer(question: str, perspective: str) -> Tuple[str, str, str, str]:
@@ -256,7 +244,7 @@ def generate_answer(question: str, perspective: str) -> Tuple[str, str, str, str
         (answer_text, steps_md, forms_md, sources_md)
     """
     try:
-        #logger.debug(f"Generating answer | Perspective: {perspective} | Question: {question[:80]}")
+        logger.debug(f"Generating answer | Perspective: {perspective} | Question: {question[:80]}")
 
         answer_text, steps, forms, references, _ = answer_with_openai(
             question, perspective=perspective, k=TOP_K
@@ -284,5 +272,6 @@ def generate_answer(question: str, perspective: str) -> Tuple[str, str, str, str
         return (answer_text or "").strip(), steps_md, forms_md, sources_md
 
     except Exception:
-        raise Exception("Error during answer generation.")
+        logger.exception("Error during answer generation.")
+        raise
 
