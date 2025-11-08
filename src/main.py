@@ -10,7 +10,7 @@ Hugging Face Inference API for grounded answer generation.
 import logging
 from pathlib import Path
 import streamlit as st
-from app_backend import generate_answer
+#from app_backend import generate_answer
 
 # ============================================================
 # Logging
@@ -63,6 +63,7 @@ with st.form("query_form"):
     perspective = st.selectbox("Perspektive", ["Mieter:in", "Vermieter:in"])
     submitted = st.form_submit_button("Antwort generieren ⚙️")
 
+"""
 if submitted and question.strip():
     with st.spinner("Antwort wird generiert, bitte warten..."):
         try:
@@ -82,3 +83,4 @@ if submitted and question.strip():
         except Exception:
             st.error("Ein unerwarteter Fehler ist aufgetreten. Bitte siehe Logdatei für Details.")
             st.stop()
+"""
