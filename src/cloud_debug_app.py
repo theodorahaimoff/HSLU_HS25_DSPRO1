@@ -22,6 +22,10 @@ import sys, platform
 st.write("Python:", sys.version)
 st.write("Platform:", platform.platform())
 
+result = os.popen('pip list').read()
+st.write("PIP packages:")
+st.code(result, language=bash)
+
 
 # Try a minimal OpenAI ping (no JSON mode to reduce failure surface)
 if st.button("Ping OpenAI"):
@@ -51,9 +55,9 @@ DIR = mf["dir"]
 COLLECTION_PATH = store_dir / DIR
 st.write("Chroma manifest present:", bool(mf))
 st.write("Chroma collection name:", COLLECTION_NAME)
-st.write("Chroma directory name:", DIR)
-st.write("Chroma directory name:", store_dir)
-st.write("Chroma directory name:", COLLECTION_PATH)
+st.write("Chroma path:", DIR)
+st.write("Store path:", store_dir)
+st.write("Chroma collection path:", COLLECTION_PATH)
 
 
 def get_collection(name=COLLECTION_NAME):

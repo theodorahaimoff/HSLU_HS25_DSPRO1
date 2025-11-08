@@ -101,3 +101,4 @@ The app automatically builds its own Chroma index if missing.
 - Logs and JSON files are **git-ignored** — they're rebuilt locally.
 - Secrets are **git-ignored** due to security concerns.
 - The app uses OpenAI embeddings (`dimension = 1536`). Mixing embedding models requires re-indexing.
+- If the error `ModuleNotFound` pops up, there's a dependency issue. Either there's a mismatch of package versions or a package isn't supported by the Streamlit Python version (3.13.9). 
