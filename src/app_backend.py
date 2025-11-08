@@ -17,7 +17,7 @@
 
 # ## 📦 Inputs & Outputs
 
-# In[24]:
+# In[14]:
 
 
 import os, json, logging, re
@@ -38,10 +38,15 @@ logger = logging.getLogger("SwissRentalLawApp")
 
 # ## 🧱 Chroma configuration
 
-# In[25]:
+# In[15]:
 
 
-store_dir = Path().resolve().parent / "store"
+store_dir = Path().parent.resolve() / "store"
+
+
+# In[17]:
+
+
 mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
 
 MODEL_NAME = mf["model"]
@@ -59,7 +64,7 @@ COLLECTION = get_collection()
 
 # ### Chroma helper functions
 
-# In[28]:
+# In[20]:
 
 
 def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, col = COLLECTION):
@@ -89,7 +94,7 @@ def pack_context(retrieved, max_chars=MAX_CTX_CHARS, per_source_cap=3):
 
 # ## 🧠 OpenAI client
 
-# In[29]:
+# In[21]:
 
 
 OAI = (os.getenv("OAI_TOKEN") or
@@ -119,7 +124,7 @@ def embed_query(text: str) -> list:
 # ```
 # The answer will then be validated with `jsonschema`
 
-# In[30]:
+# In[22]:
 
 
 # --- Prompt (escaped braces; single {question}) ---
@@ -215,7 +220,7 @@ def answer_with_openai(question: str, perspective: str, k=TOP_K, model="gpt-4o-m
 # ## 🔧 Answer Generation & Formatting
 # We query the OpenAI model and reformat the answers to provide a unified and unchanging design
 
-# In[31]:
+# In[23]:
 
 
 def sanitize_step(step: str) -> str:
@@ -233,7 +238,7 @@ def format_bulleted(items: Iterable[str]) -> str:
     return "\n" + "\n".join(f"- {t}" for t in items) if items else ""
 
 
-# In[32]:
+# In[24]:
 
 
 def generate_answer(question: str, perspective: str) -> Tuple[str, str, str, str]:

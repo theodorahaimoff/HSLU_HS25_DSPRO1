@@ -41,13 +41,7 @@ if st.button("Ping OpenAI"):
         st.exception(e)
 """
 
-def get_base_dir():
-    base = Path().resolve().parent
-    if not base:
-        return Path().parent.resolve()
-    return base
-
-store_dir = get_base_dir() / "store"
+store_dir = Path().parent.resolve() / "store"
 mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
 
 MODEL_NAME = mf["model"]
