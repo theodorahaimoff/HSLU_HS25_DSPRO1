@@ -24,12 +24,12 @@ HSLU_HS25_DSPRO1/
 │   ├── 1_data_preparation.ipynb
 │   ├── 2_indexing_and_retrieval.ipynb
 │   └── 3_answer_generation.ipynb
-├── src/                    # persistent Chroma database used by Streamlit
+├── src/                          # persistent Chroma database used by Streamlit
 │   ├── logs/
 │   │   └── .gitkeep 
 │   ├── app_backend.py            # Streamlit Backend (generated from notebook)
-│   ├── main.py               # Streamlit UI
-│   └── cloud_debug_app.py    # helper for debugging Streamlit Cloud
+│   ├── app.py                    # Streamlit UI
+│   └── cloud_debug_app.py        # helper for debugging Streamlit Cloud
 └── store/
     ├── UID/
     ├── chroma.sqlite3
@@ -82,7 +82,7 @@ Run **Notebook 3** (`3_answering_and_evaluation.ipynb`)
 
 If you made any changes to the notebook update the **App Backend**
 ```bash
-  jupyter nbconvert --to script notebooks/3_answer_generation.ipynb --output "backend" --output-dir=src --TemplateExporter.exclude_markdown=True --TagRemovePreprocessor.enabled=True --TagRemovePreprocessor.remove_cell_tags='["noexport"]'
+  jupyter nbconvert --to script notebooks/3_answer_generation.ipynb --output "app_backend" --output-dir=src --TagRemovePreprocessor.enabled=True --TagRemovePreprocessor.remove_cell_tags='["noexport"]'
 ```
 > 👉 **Note** \
 > Any code fields that shouldn't be exported into the backend should be tagged as `noexport`. Make sure the ones you do export are actually needed for the app backend.
@@ -90,7 +90,7 @@ If you made any changes to the notebook update the **App Backend**
 ### 6️⃣ Launch Streamlit app
 Run the following command on your terminal
 ```bash
-streamlit run src/main.py
+streamlit run src/app.py
 ```
 The application's GUI should now be available under http://localhost:8501/
 

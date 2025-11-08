@@ -1,6 +1,22 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+# # Answering & Evaluation (Chroma → OpenAI)
+# 
+# **Goal**: Turn the retrieved law articles into a **grounded**, **structured answer** using OpenAI.
+# 
+# **Pipeline overview**
+# 
+# 1. Load the **manifest** to find the correct Chroma store and collection.
+# 2. Embed the **query** with the same embedding model used for indexing.
+# 3. **Retrieve** relevant articles from Chroma (top-k).
+# 4. Build a compact **CONTEXT** block.
+# 5. Call OpenAI with a strict **JSON output** format.
+# 6. Validate and render the result.
+# 
+
+# ## 📦 Inputs & Outputs
+
 # In[5]:
 
 
@@ -19,6 +35,8 @@ MAX_CTX_CHARS = 8000
 
 logger = logging.getLogger("SwissRentalLawApp")
 
+
+# ## 🧱 Chroma configuration
 
 # In[6]:
 
@@ -51,18 +69,7 @@ def get_collection(name=COLLECTION_NAME):
 COLLECTION = get_collection()
 
 
-# In[7]:
-
-
-OAI = (os.getenv("OAI_TOKEN") or
-       (dict(st.secrets).get("env", {}).get("OAI_TOKEN") if st.secrets else ""))
-
-client = OpenAI(api_key=OAI) if OAI else None
-
-def embed_query(text: str) -> list:
-    resp = client.embeddings.create(model=MODEL_NAME, input=text)
-    return resp.data[0].embedding
-
+# ### Chroma helper functions
 
 # In[11]:
 
@@ -91,6 +98,38 @@ def pack_context(retrieved, max_chars=MAX_CTX_CHARS, per_source_cap=3):
         total += len(block)
     return "".join(ctx)
 
+
+# ## 🧠 OpenAI client
+
+# In[7]:
+
+
+OAI = (os.getenv("OAI_TOKEN") or
+       (dict(st.secrets).get("env", {}).get("OAI_TOKEN") if st.secrets else ""))
+
+client = OpenAI(api_key=OAI) if OAI else None
+
+def embed_query(text: str) -> list:
+    resp = client.embeddings.create(model=MODEL_NAME, input=text)
+    return resp.data[0].embedding
+
+
+# ## 🧾 Prompt contract (Stricht JSON)
+# 
+# We instruct the model to only answer from **context** and to return **JSON**.
+# 
+# Required shape:
+# ```json
+# {
+#   "answer": "one concise sentence",
+#   "steps": ["short action", "..."],
+#   "forms": ["official form name", "..."],
+#   "references": [
+#     { "law": "OR", "title": "Art.x, Title", "source": "OR.pdf" }
+#   ]
+# }
+# ```
+# The answer will then be validated with `jsonschema`
 
 # In[12]:
 
@@ -185,6 +224,9 @@ def answer_with_openai(question: str, perspective: str, k=TOP_K, model="gpt-4o-m
     return (parsed.get("answer","").strip(), steps, forms, refs, hits)
 
 
+# ## 🔧 Answer Generation & Formatting
+# We query the OpenAI model and reformat the answers to provide a unified and unchanging design
+
 # In[ ]:
 
 
@@ -208,7 +250,7 @@ def format_bulleted(items: Iterable[str]) -> str:
 
 def generate_answer(question: str, perspective: str) -> Tuple[str, str, str, str]:
     """
-    Retrieve context, query the Hugging Face model, and return formatted Markdown sections.
+    Retrieve context, query the OpenAI model, and return formatted Markdown sections.
 
     Returns:
         (answer_text, steps_md, forms_md, sources_md)
@@ -244,10 +286,4 @@ def generate_answer(question: str, perspective: str) -> Tuple[str, str, str, str
     except Exception:
         logger.exception("Error during answer generation.")
         raise
-
-
-# In[ ]:
-
-
-
 
