@@ -27,7 +27,7 @@ HSLU_HS25_DSPRO1/
 ├── src/                    # persistent Chroma database used by Streamlit
 │   ├── logs/
 │   │   └── .gitkeep 
-│   ├── backend.py            # Streamlit Backend (generated from notebook)
+│   ├── app_backend.py            # Streamlit Backend (generated from notebook)
 │   ├── main.py               # Streamlit UI
 │   └── cloud_debug_app.py    # helper for debugging Streamlit Cloud
 └── store/
