@@ -1,6 +1,6 @@
 import os, json
 import streamlit as st
-#from openai import OpenAI
+from openai import OpenAI
 import chromadb
 from pathlib import Path
 
@@ -22,7 +22,7 @@ import sys, platform
 st.write("Python:", sys.version)
 st.write("Platform:", platform.platform())
 
-"""
+
 # Try a minimal OpenAI ping (no JSON mode to reduce failure surface)
 if st.button("Ping OpenAI"):
     try:
@@ -39,7 +39,7 @@ if st.button("Ping OpenAI"):
             st.code(r.choices[0].message.content)
     except Exception as e:
         st.exception(e)
-"""
+
 
 store_dir = Path().parent.resolve() / "store"
 mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
