@@ -7,7 +7,7 @@ It uses a persistent Chroma vector store for semantic retrieval and the
 Hugging Face Inference API for grounded answer generation.
 """
 
-import logging, re
+import logging
 from pathlib import Path
 import streamlit as st
 from app_backend import generate_answer
