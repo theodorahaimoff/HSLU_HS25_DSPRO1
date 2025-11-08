@@ -21,6 +21,7 @@ st.write("OpenAI token (masked):", _mask(OAI))
 import sys, platform
 st.write("Python:", sys.version)
 st.write("Platform:", platform.platform())
+
 """
 # Try a minimal OpenAI ping (no JSON mode to reduce failure surface)
 if st.button("Ping OpenAI"):
@@ -38,7 +39,7 @@ if st.button("Ping OpenAI"):
             st.code(r.choices[0].message.content)
     except Exception as e:
         st.exception(e)
-
+"""
 store_dir = Path().resolve().parent / "store"
 mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
 
@@ -47,7 +48,7 @@ COLLECTION_NAME = mf["collection"]
 EXPECTED_DIM = mf["dim"]
 DIR = mf["dir"]
 COLLECTION_PATH = store_dir / DIR
-
+"""
 def get_collection(name=COLLECTION_NAME):
     client = chromadb.PersistentClient(path=str(COLLECTION_PATH))
     return client.get_collection(name)
