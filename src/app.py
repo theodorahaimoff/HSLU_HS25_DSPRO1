@@ -1,7 +1,7 @@
 import os, json
 import streamlit as st
 #from openai import OpenAI
-#import chromadb
+import chromadb
 from pathlib import Path
 
 st.set_page_config(page_title="Cloud Debug", page_icon="🛠️")
