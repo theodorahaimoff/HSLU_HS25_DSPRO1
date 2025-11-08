@@ -4,7 +4,7 @@ Swiss Rental-Law Assistant (Streamlit App)
 
 This app provides an interactive interface for querying Swiss rental law.
 It uses a persistent Chroma vector store for semantic retrieval and the
-Hugging Face Inference API for grounded answer generation.
+OpenAI API for grounded answer generation.
 """
 
 import logging
