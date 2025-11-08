@@ -6,10 +6,10 @@
 
 import os, json, logging, re
 from pathlib import Path
-from typing import Iterable, Tuple
 import chromadb
 from openai import OpenAI
 from jsonschema import validate
+from typing import Iterable, Tuple
 
 # Retrieval knobs
 TOP_K  = 5
