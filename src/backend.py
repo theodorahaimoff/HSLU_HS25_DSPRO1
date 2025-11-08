@@ -62,7 +62,7 @@ def _collection_name():
     return _mf()["collection"]
 
 def _chroma_dir():
-    return store_dir / _collection_name()
+    return store_dir / _mf()["dir"]
 
 def _expected_dim():
     return _mf()["dim"]
@@ -94,11 +94,12 @@ def embed_query(text: str) -> list:
 
 
 def get_client():
-    return chromadb.PersistentClient(path=_chroma_dir())
+    return chromadb.PersistentClient(path=str(_chroma_dir()))
 
 def get_collection(name: str | None = None):
     name = name or _collection_name()
-    col = get_client().get_collection(name)
+    client = get_client()
+    col = client.get_or_create_collection(name)
     logger.info(f"Loaded Chroma collection '{name}' with {col.count()} entries.")
     return col
 
