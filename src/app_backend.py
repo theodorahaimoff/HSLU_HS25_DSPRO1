@@ -33,7 +33,7 @@ TOP_K  = 5
 PRE_K  = 20
 MAX_CTX_CHARS = 8000
 
-logger = logging.getLogger("SwissRentalLawApp")
+#logger = logging.getLogger("SwissRentalLawApp")
 
 
 # ## 🧱 Chroma configuration
@@ -256,7 +256,7 @@ def generate_answer(question: str, perspective: str) -> Tuple[str, str, str, str
         (answer_text, steps_md, forms_md, sources_md)
     """
     try:
-        logger.debug(f"Generating answer | Perspective: {perspective} | Question: {question[:80]}")
+        #logger.debug(f"Generating answer | Perspective: {perspective} | Question: {question[:80]}")
 
         answer_text, steps, forms, references, _ = answer_with_openai(
             question, perspective=perspective, k=TOP_K
@@ -284,6 +284,5 @@ def generate_answer(question: str, perspective: str) -> Tuple[str, str, str, str
         return (answer_text or "").strip(), steps_md, forms_md, sources_md
 
     except Exception:
-        logger.exception("Error during answer generation.")
-        raise
+        raise Exception("Error during answer generation.")
 
