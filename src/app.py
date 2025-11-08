@@ -22,6 +22,22 @@ import sys, platform
 st.write("Python:", sys.version)
 st.write("Platform:", platform.platform())
 
+
+def get_base_dir():
+    base = Path().parent.resolve()
+    if not base:
+        return Path().resolve().parent
+    return base
+
+store_dir = get_base_dir() / "store"
+mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
+
+MODEL_NAME = mf["model"]
+COLLECTION_NAME = mf["collection"]
+EXPECTED_DIM = mf["dim"]
+DIR = mf["dir"]
+COLLECTION_PATH = store_dir / DIR
+
 """
 # Try a minimal OpenAI ping (no JSON mode to reduce failure surface)
 if st.button("Ping OpenAI"):
@@ -40,20 +56,6 @@ if st.button("Ping OpenAI"):
     except Exception as e:
         st.exception(e)
 """
-def get_base_dir():
-    base = Path().parent.resolve()
-    if not base:
-        return Path().resolve().parent
-    return base
-
-store_dir = get_base_dir() / "store"
-mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
-
-MODEL_NAME = mf["model"]
-COLLECTION_NAME = mf["collection"]
-EXPECTED_DIM = mf["dim"]
-DIR = mf["dir"]
-COLLECTION_PATH = store_dir / DIR
 """
 def get_collection(name=COLLECTION_NAME):
     client = chromadb.PersistentClient(path=str(COLLECTION_PATH))
