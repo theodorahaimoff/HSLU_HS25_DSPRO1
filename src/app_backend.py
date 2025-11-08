@@ -23,7 +23,19 @@ logger = logging.getLogger("SwissRentalLawApp")
 # In[6]:
 
 
-store_dir = Path().parent.resolve() / "store"
+def get_base_dir() -> Path:
+    """
+    Returns the project base directory that works both:
+    - in normal scripts (via __file__)
+    - in notebooks (via current working directory)
+    """
+    try:
+        return Path().parent.resolve()
+    except NameError:
+        # __file__ not defined (e.g., in Jupyter or interactive)
+        return Path(os.getcwd()).resolve()
+
+store_dir = get_base_dir() / "store"
 mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
 
 MODEL_NAME = mf["model"]
@@ -38,7 +50,9 @@ def get_collection(name=COLLECTION_NAME):
 
 COLLECTION = get_collection()
 
+
 # In[7]:
+
 
 OAI = (os.getenv("OAI_TOKEN") or
        (dict(st.secrets).get("env", {}).get("OAI_TOKEN") if st.secrets else ""))

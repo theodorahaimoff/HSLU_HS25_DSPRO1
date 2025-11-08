@@ -11,12 +11,7 @@ import logging, re
 from pathlib import Path
 import streamlit as st
 from typing import Iterable, Tuple
-from app_backend import answer_with_openai
-
-# Retrieval knobs
-TOP_K  = 5
-PRE_K  = 20
-MAX_CTX_CHARS = 8000
+from app_backend import generate_answer
 
 # ============================================================
 # Logging
@@ -56,61 +51,6 @@ st.markdown(
     "werden jedoch automatisch generiert und sind **keine** rechtliche Beratung. "
     "Sie dienen lediglich als Orientierungshilfe."
 )
-
-
-
-def sanitize_step(step: str) -> str:
-    """Remove rare leading artifact ']:' from a step string."""
-    return re.sub(r"^\s*\]:\s*", "", step or "").strip()
-
-def format_numbered(items: Iterable[str]) -> str:
-    """Format an iterable into a numbered Markdown list."""
-    items = [i for i in items if i]
-    return "\n" + "\n".join(f"{i + 1}. {t}" for i, t in enumerate(items)) if items else "Keine Schritte gefunden."
-
-def format_bulleted(items: Iterable[str]) -> str:
-    """Format an iterable into a bulleted Markdown list."""
-    items = [i for i in items if i]
-    return "\n" + "\n".join(f"- {t}" for t in items) if items else ""
-
-def generate_answer(question: str, perspective: str) -> Tuple[str, str, str, str]:
-    """
-    Retrieve context, query the Hugging Face model, and return formatted Markdown sections.
-
-    Returns:
-        (answer_text, steps_md, forms_md, sources_md)
-    """
-    try:
-        logger.debug(f"Generating answer | Perspective: {perspective} | Question: {question[:80]}")
-
-        answer_text, steps, forms, references, _ = answer_with_openai(
-            question, perspective=perspective, k=TOP_K
-        )
-
-        # --- Steps ---
-        if isinstance(steps, str):
-            steps = [s.strip() for s in steps.split("\n") if s.strip()]
-        clean_steps = [sanitize_step(s) for s in (steps or [])]
-        steps_md = format_numbered(clean_steps)
-
-        # --- Forms ---
-        if isinstance(forms, str):
-            forms = [f.strip() for f in forms.split("\n") if f.strip()]
-        forms_md = format_bulleted(forms) if forms else "Keine Formulare gefunden."
-
-        # --- Sources ---
-        if references:
-            dedup = {(r.get("law", "?"), r.get("title", "?")) for r in references}
-            ordered = sorted(dedup, key=lambda x: (x[0], x[1]))
-            sources_md = format_bulleted([f"**{law}** {title}" for law, title in ordered])
-        else:
-            sources_md = "Keine Quellen gefunden."
-
-        return (answer_text or "").strip(), steps_md, forms_md, sources_md
-
-    except Exception:
-        logger.exception("Error during answer generation.")
-        raise
 
 # ============================================================
 # Streamlit UI
