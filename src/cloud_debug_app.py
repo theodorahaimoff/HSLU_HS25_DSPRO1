@@ -49,7 +49,7 @@ DIR = mf["dir"]
 COLLECTION_PATH = store_dir / DIR
 
 def get_client():
-    return chromadb.PersistentClient(path=DIR)
+    return chromadb.PersistentClient(path=COLLECTION_PATH)
 
 def get_collection(name: str | None = None):
     name = name or COLLECTION_NAME
@@ -62,5 +62,5 @@ st.write("Chroma manifest present:", bool(mf))
 st.write("Chroma collection name:", COLLECTION_NAME)
 st.write("Chroma directory name:", DIR)
 st.write("Chroma directory name:", COLLECTION_PATH)
-#st.write("Chroma directory exists:", COLLECTION_PATH.exists())
+st.write("Chroma system has value:", get_client() is not None)
 #st.write("Chroma collection has value:", COLLECTION is not None)
