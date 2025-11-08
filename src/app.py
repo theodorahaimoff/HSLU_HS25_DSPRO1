@@ -1,11 +1,11 @@
 import os, json
 import streamlit as st
-from openai import OpenAI
+#from openai import OpenAI
 import chromadb
 from pathlib import Path
 
 st.set_page_config(page_title="Cloud Debug", page_icon="🛠️")
-
+"""
 # Secrets + env print
 def _mask(t):
     return t[:4] + "…" + t[-4:] if t and len(t) > 12 else "(unset)"
@@ -38,7 +38,7 @@ if st.button("Ping OpenAI"):
             st.code(r.choices[0].message.content)
     except Exception as e:
         st.exception(e)
-
+"""
 store_dir = Path().resolve().parent / "store"
 mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
 
