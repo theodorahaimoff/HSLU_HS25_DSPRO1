@@ -48,11 +48,8 @@ EXPECTED_DIM = mf["dim"]
 DIR = mf["dir"]
 COLLECTION_PATH = store_dir / DIR
 
-def get_client():
-    return chromadb.PersistentClient(path=str(COLLECTION_PATH))
-
 def get_collection(name=COLLECTION_NAME):
-    client = get_client()
+    client = chromadb.PersistentClient(path=str(COLLECTION_PATH))
     return client.get_collection(name)
 
 COLLECTION = get_collection()
