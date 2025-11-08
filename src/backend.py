@@ -7,17 +7,13 @@
 import os, json, logging, re
 from pathlib import Path
 from typing import Iterable, Tuple
-import streamlit as st
 from openai import OpenAI
 from jsonschema import validate
 
 try:
     import chromadb
 except Exception as e:
-    st.sidebar.error(
-        "ChromaDB couldn’t be imported." + str(e)
-    )
-    raise
+    raise EnvironmentError("ChromaDB couldn’t be imported."+ str(e))
 
 # Retrieval knobs
 TOP_K  = 5
@@ -49,8 +45,7 @@ def load_manifest():
         mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
         return mf
     except Exception as e:
-        st.sidebar.error(f"Manifest error: {e}")
-        return None
+        raise EnvironmentError("Manifest error" + str(e))
 
 def _mf():
     return load_manifest()
@@ -72,6 +67,7 @@ def _expected_dim():
 
 
 def _get_oai_token():
+    import streamlit as st
     try:
         s = dict(st.secrets)
         return s.get("env", {}).get("OAI_TOKEN") or os.getenv("OAI_TOKEN") or ""
