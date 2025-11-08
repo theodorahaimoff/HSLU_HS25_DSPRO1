@@ -1,11 +1,11 @@
 import os, json
 import streamlit as st
 #from openai import OpenAI
-import chromadb
+#import chromadb
 from pathlib import Path
 
 st.set_page_config(page_title="Cloud Debug", page_icon="🛠️")
-"""
+
 # Secrets + env print
 def _mask(t):
     return t[:4] + "…" + t[-4:] if t and len(t) > 12 else "(unset)"
@@ -21,7 +21,7 @@ st.write("OpenAI token (masked):", _mask(OAI))
 import sys, platform
 st.write("Python:", sys.version)
 st.write("Platform:", platform.platform())
-
+"""
 # Try a minimal OpenAI ping (no JSON mode to reduce failure surface)
 if st.button("Ping OpenAI"):
     try:
@@ -38,7 +38,7 @@ if st.button("Ping OpenAI"):
             st.code(r.choices[0].message.content)
     except Exception as e:
         st.exception(e)
-"""
+
 store_dir = Path().resolve().parent / "store"
 mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
 
@@ -60,6 +60,7 @@ st.write("Chroma directory name:", DIR)
 st.write("Chroma directory name:", store_dir)
 st.write("Chroma directory name:", COLLECTION_PATH)
 st.write("Chroma collection has value:", COLLECTION.count())
+"""
 
 #embed = client.embeddings.create(model=MODEL_NAME, input="Kündigungsfrist")
 #st.write("Embedding present:", embed)
