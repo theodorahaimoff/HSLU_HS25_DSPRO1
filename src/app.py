@@ -47,10 +47,14 @@ st.html(f"<style>{css}</style>")
 # ============================================================
 st.set_page_config(
     page_title="rently — dein digitaler Mietrechtsassistent 🇨🇭",
-    page_icon="⚖️",
+    page_icon="img/logo.png",
     layout="centered"
 )
-st.title("rently")
+logo, title = st.columns(spec=[0.1,0.9], gap="small", vertical_alignment="bottom", width=700)
+with logo:
+    st.image("img/logo.png", width=70)
+with title:
+    st.title("rently")
 st.header("Dein digitaler Mietrechtsassistent")
 st.markdown(
     "Mit *rently* bekommst du schnelle, präzise Antworten zu deinen Fragen rund um das Schweizer Mietrecht. \n \n " 
