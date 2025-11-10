@@ -57,8 +57,8 @@ with title:
     st.title("rently")
 st.header("Dein digitaler Mietrechtsassistent")
 st.markdown(
-    "Mit *rently* bekommst du schnelle, präzise Antworten zu deinen Fragen rund um das Schweizer Mietrecht. \n \n " 
-    "Ob Mietzinserhöhung, Kündigung oder Nebenkosten – *rently* durchsucht die relevanten Gesetze (OR, VMWG, StGB) und liefert dir klare Schritte, passende Formulare und rechtliche Grundlagen."
+    "Mit **rently** bekommst du schnelle, präzise Antworten zu deinen Fragen rund um das Schweizer Mietrecht. \n \n " 
+    "Ob Mietzinserhöhung, Kündigung oder Nebenkosten – **rently** durchsucht die relevanten Gesetze (OR, VMWG, StGB) und liefert dir klare Schritte, passende Formulare und rechtliche Grundlagen."
 )
 
 # ============================================================
