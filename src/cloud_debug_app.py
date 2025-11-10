@@ -22,13 +22,14 @@ st.write("OpenAI token (masked):", _mask(OAI))
 st.write("Python:", sys.version)
 st.write("Platform:", platform.platform())
 
-st.write("PIP packages:")
 result = subprocess.run(
     [sys.executable, "-m", "pip", "list"],
     capture_output=True,
     text=True
 )
-st.code(result.stdout, language=None)
+
+with st.expander("PIP packages:"):
+    st.code(result.stdout, language=None)
 
 
 # Try a minimal OpenAI ping (no JSON mode to reduce failure surface)
