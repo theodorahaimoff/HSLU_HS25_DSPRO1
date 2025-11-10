@@ -1,10 +1,10 @@
-# 🏠 Swiss Rental-Law Assistant
+# <img src="img/logo.png" alt="logo" width="30"/> rently
 
 **What it does**  
 
-The **Swiss Rental-Law Assistant** is a Retrieval-Augmented Generation (**RAG**) application that answers legal questions about Swiss rental law. \
+**rently** is a Retrieval-Augmented Generation (**RAG**) application that answers legal questions about Swiss rental law. \
 It uses **OpenAI** embeddings to index articles from the Obligationenrecht (OR), Verordnung über die Miete und Pacht von Wohn- und Geschäftsräumen (VMWG), and Strafgesetzbuch (StGB) into a persistent **ChromaDB** store. \
-When a user asks a question, the system retrieves the most relevant legal articles, builds a concise context, and generates a structured, grounded answer using the **GPT-4o-mini** model.
+When a user asks a question, **rently** retrieves the most relevant legal articles, builds a concise context, and generates a structured, grounded answer using the **GPT-4o-mini** model.
 
 ## 🗂️ Repo Layout
 ```bash
@@ -91,9 +91,8 @@ streamlit run src/app.py
 The application's GUI should now be available under http://localhost:8501/
 
 ### 7️⃣ Deployment to Streamlit Cloud (optional)
-
-Push to GitHub. \
-The app automatically builds its own Chroma index if missing. 
+Push to GitHub and deploy the app to Streamlit Cloud via your Streamlit account dashboard. \
+Once deployed, the Cloud app gets automatically updated after every commit.
 > 👉 **Note** \
 > Add your `OAI_TOKEN` to Streamlit Secrets.
 
