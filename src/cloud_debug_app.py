@@ -24,7 +24,7 @@ st.write("Platform:", platform.platform())
 
 result = os.popen('pip list').read()
 st.write("PIP packages:")
-st.code(result, language=bash)
+st.code(result, language=None)
 
 
 # Try a minimal OpenAI ping (no JSON mode to reduce failure surface)
