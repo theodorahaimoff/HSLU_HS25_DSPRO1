@@ -35,20 +35,26 @@ logger.info("Starting Swiss Rental-Law Assistant...")
 logging.getLogger("torch").setLevel(logging.INFO)
 logging.getLogger("chromadb").setLevel(logging.DEBUG)
 
+css = """
+.st-key-answer-container {
+    background-color: #EAE8FF;
+}
+"""
+st.html(f"<style>{css}</style>")
+
 # ============================================================
 # Configuration
 # ============================================================
 st.set_page_config(
-    page_title="Schweizer Mietrechts-Assistent",
+    page_title="rently — dein digitaler Mietrechtsassistent 🇨🇭",
     page_icon="⚖️",
     layout="centered"
 )
-st.title("⚖️ Schweizer Mietrechts-Assistent")
+st.title("rently")
+st.header("Dein digitaler Mietrechtsassistent")
 st.markdown(
-    "Der Schweizer Mietrechts-Assistent ist ein KI-gestütztes Tool, das Fragen zum "
-    "**Schweizer Mietrecht** beantwortet. Die Antworten basieren auf juristischen Quellen, "
-    "werden jedoch automatisch generiert und sind **keine** rechtliche Beratung. "
-    "Sie dienen lediglich als Orientierungshilfe."
+    "Mit *rently* bekommst du schnelle, präzise Antworten zu deinen Fragen rund um das Schweizer Mietrecht. \n \n " 
+    "Ob Mietzinserhöhung, Kündigung oder Nebenkosten – *rently* durchsucht die relevanten Gesetze (OR, VMWG, StGB) und liefert dir klare Schritte, passende Formulare und rechtliche Grundlagen."
 )
 
 # ============================================================
@@ -56,12 +62,12 @@ st.markdown(
 # ============================================================
 with st.form("query_form"):
     question = st.text_area(
-        "Gib deine Rechtsfrage ein:",
+        label="Gib deine Rechtsfrage ein:",
         placeholder="Beispiel: Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?",
         height=100
     )
-    perspective = st.selectbox("Perspektive", ["Mieter:in", "Vermieter:in"])
-    submitted = st.form_submit_button("Antwort generieren ⚙️")
+    perspective = st.selectbox(label="Perspektive", options=["Mieter:in", "Vermieter:in"])
+    submitted = st.form_submit_button(label="Antwort generieren", type="primary")
 
 
 if submitted and question.strip():
@@ -70,7 +76,7 @@ if submitted and question.strip():
             ans, steps, forms, sources = generate_answer(question, perspective)
             logger.debug(f"Answer generated successfully for question: {question[:60]}")
 
-            with st.container(border=True):
+            with st.container(border=True, key="answer-container"):
                 st.header("💡 Antwort")
                 st.markdown(ans)
                 st.subheader("✅ Schritte/Optionen")
@@ -83,3 +89,5 @@ if submitted and question.strip():
         except Exception:
             st.error("Ein unerwarteter Fehler ist aufgetreten. Bitte siehe Logdatei für Details.")
             st.stop()
+
+st.caption("*rently basiert auf KI und ersetzt keine Rechtsberatung.*")

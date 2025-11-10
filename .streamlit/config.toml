@@ -1,17 +1,12 @@
 [theme]
-primaryColor = "#7B61FF"          # purple accent color
-backgroundColor = "#fdfcff"       # very light purple background
-secondaryBackgroundColor = "#f8f5ff"  # slightly darker background for boxes
-textColor = "#262730"             # dark text
-font = "sans serif"
-borderColor = "lavender"
-headingFontSizes = ["36px", "24px", "20px"]
+headingFont = "Host Grotesk:https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@800&display=swap"
+font = "Host Grotesk:https://fonts.googleapis.com/css2?family=Host+Grotesk&display=swap"
+headingFontSizes = ["50px", "24px", "20px"]
+primaryColor = "#8678FF"
+backgroundColor = "#F7F4FF"
+secondaryBackgroundColor = "#EAE8FF"
+textColor = "#030301"
+borderColor = "#A096FF"
 
 [server]
 fileWatcherType = "poll"
-
-[env]
-CHROMA_TELEMETRY_ENABLED = "false"
-POSTHOG_DISABLED = "true"
-ANONYMIZED_TELEMETRY = "false"
-
