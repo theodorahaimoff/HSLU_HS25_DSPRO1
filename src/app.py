@@ -67,7 +67,7 @@ st.markdown(
 with st.form("query_form"):
     question = st.text_area(
         label="Gib deine Rechtsfrage ein:",
-        placeholder="Beispiel: Wie fechte ich eine Mietzinserhöhung an? Welches Formular ist nötig?",
+        placeholder="Beispiel: Wie fechte ich eine Mieterhöhung an?",
         height=100
     )
     perspective = st.selectbox(label="Perspektive", options=["Mieter:in", "Vermieter:in"])
