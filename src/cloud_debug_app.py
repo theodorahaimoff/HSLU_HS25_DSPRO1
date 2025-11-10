@@ -3,6 +3,7 @@ import streamlit as st
 from openai import OpenAI
 import chromadb
 from pathlib import Path
+import sys, subprocess, platform
 
 st.set_page_config(page_title="Cloud Debug", page_icon="🛠️")
 
@@ -18,13 +19,16 @@ st.write("OpenAI token present:", bool(OAI))
 st.write("OpenAI token (masked):", _mask(OAI))
 
 # Show runtime info
-import sys, platform
 st.write("Python:", sys.version)
 st.write("Platform:", platform.platform())
 
-result = os.popen('pip list').read()
 st.write("PIP packages:")
-st.code(result, language=None)
+result = subprocess.run(
+    [sys.executable, "-m", "pip", "list"],
+    capture_output=True,
+    text=True
+)
+st.code(result.stdout, language=None)
 
 
 # Try a minimal OpenAI ping (no JSON mode to reduce failure surface)
