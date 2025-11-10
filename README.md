@@ -4,7 +4,9 @@
 
 **rently** is a Retrieval-Augmented Generation (**RAG**) application that answers legal questions about Swiss rental law. \
 It uses **OpenAI** embeddings to index articles from the Obligationenrecht (OR), Verordnung über die Miete und Pacht von Wohn- und Geschäftsräumen (VMWG), and Strafgesetzbuch (StGB) into a persistent **ChromaDB** store. \
-When a user asks a question, **rently** retrieves the most relevant legal articles, builds a concise context, and generates a structured, grounded answer using the **GPT-4o-mini** model.
+When a user asks a question, **rently** retrieves the most relevant legal articles, builds a concise context, and generates a structured, grounded answer using the **GPT-4o-mini** model. 
+
+Find the productive application here: [rently-ch.streamlit.app](https://rently-ch.streamlit.app/)
 
 ## 🗂️ Repo Layout
 ```bash
