@@ -28,7 +28,7 @@ result = subprocess.run(
     text=True
 )
 
-with st.expander("PIP packages:"):
+with st.expander("PIP packages"):
     st.code(result.stdout, language=None)
 
 
