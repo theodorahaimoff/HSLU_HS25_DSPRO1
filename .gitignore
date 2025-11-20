@@ -28,3 +28,4 @@ src/logs/*
 Thumbs.db
 
 
+/logs/app.log

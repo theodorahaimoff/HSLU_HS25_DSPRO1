@@ -17,7 +17,7 @@
 
 # ## 📦 Inputs & Outputs
 
-# In[14]:
+# In[1]:
 
 
 import os, json, logging, re
@@ -38,13 +38,13 @@ logger = logging.getLogger("SwissRentalLawApp")
 
 # ## 🧱 Chroma configuration
 
-# In[15]:
+# In[2]:
 
 
 store_dir = Path().parent.resolve() / "store"
 
 
-# In[17]:
+# In[4]:
 
 
 mf = json.loads((store_dir / "manifest.json").read_text(encoding="utf-8"))
@@ -64,17 +64,29 @@ COLLECTION = get_collection()
 
 # ### Chroma helper functions
 
-# In[20]:
+# In[7]:
 
 
-def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, col = COLLECTION):
+def retrieve(query: str, k: int = TOP_K, k_pre: int = PRE_K, col = COLLECTION, where: dict | None=None):
     q_emb = embed_query(query)
-    res = col.query(query_embeddings=[q_emb], n_results=k_pre, include=['documents','metadatas','distances'])
+    res = col.query(
+        query_embeddings=[q_emb],
+        n_results=k_pre,
+        include=['documents','metadatas','distances'],
+        where=where or {}
+    )
+
     docs  = res.get('documents', [[]])[0]
     metas = res.get('metadatas', [[]])[0]
     dists = res.get('distances', [[]])[0]
     prelim = sorted(list(zip(docs, metas, dists)), key=lambda x: x[2])
     return prelim[:k]
+
+def retrieve_laws(query: str, k: int = TOP_K, k_pre: int = PRE_K):
+    return retrieve(query=query, k=k, k_pre=k_pre, where={"doc_type": "law"})
+
+def retrieve_forms(query: str, k: int = TOP_K, k_pre: int = PRE_K):
+    return retrieve(query=query, k=k, k_pre=k_pre, where={"doc_type": "form"})
 
 def pack_context(retrieved, max_chars=MAX_CTX_CHARS, per_source_cap=3):
     ctx, total, seen = [], 0, {}
@@ -94,7 +106,7 @@ def pack_context(retrieved, max_chars=MAX_CTX_CHARS, per_source_cap=3):
 
 # ## 🧠 OpenAI client
 
-# In[21]:
+# In[8]:
 
 
 OAI = (os.getenv("OAI_TOKEN") or
@@ -124,7 +136,7 @@ def embed_query(text: str) -> list:
 # ```
 # The answer will then be validated with `jsonschema`
 
-# In[22]:
+# In[9]:
 
 
 # --- Prompt (escaped braces; single {question}) ---
@@ -137,8 +149,25 @@ Return STRICTLY a JSON object with this shape, no extra keys, no markdown fences
 
 "answer": "one concise sentence",\\n'
 "steps": ["one unique action per entry for the given perspective, no numbering, 2-4 items"],\\n'
-"forms": ["exact official names from CONTEXT, or empty array"],\\n'
-"references": [{{"law": "OR", "title": "Art.x, Article Title", "source": "OR.pdf"}}]\\n'
+"forms": [{{"form_name": "Mitteilung des Anfangsmietzinses (Kanton Luzern)", "jurisdiction": "Kanton Luzern", "form_url": "https://..."}}],
+"references": [{{"law": "OR", "title": "Art.x, Article Title", "source": "OR.pdf"}}]
+
+FORMS:
+- is a JSON array of objects with keys: "form_name", "jurisdiction", "form_url", "used_when".
+- "used_when" has this machine-readable structure:
+  "PERS: <landlord|tenant|both> | POS: <comma-separated positive cues> | NEG: <comma-separated negative cues>".
+
+RULES FOR SELECTING "forms":
+- The QUESTION contains a Perspective (e.g. "Perspective: Mieter" or "Perspective: Vermieter").
+- If Perspective is Mieter:in, only consider forms with PERS: tenant or both.
+- If Perspective is Vermieter:in, only consider forms with PERS: landlord or both.
+- Prefer forms where POS terms are strongly related to the QUESTION and CONTEXT.
+- Do NOT use forms whose NEG terms clearly contradict the QUESTION.
+- Never invent new forms. Only select from the given FORMS.
+- If no form fits these rules, return an empty array [] for "forms".
+
+FORMS (JSON array, may be empty):
+{forms}
 
 CONTEXT:
 {context}
@@ -161,7 +190,16 @@ schema = {
         },
         "forms": {
             "type": "array",
-            "items": {"type": "string"},
+            "items": {
+                "type": "object",
+                "properties": {
+                    "form_name": {"type": "string"},
+                    "jurisdiction": {"type": "string"},
+                    "form_url": {"type": "string"},
+                    "used_when": {"type": "string"},
+                },
+                "required": ["form_name", "jurisdiction", "form_url"]
+            },
             "minItems": 0,
             "maxItems": 10
         },
@@ -183,10 +221,31 @@ schema = {
 
 
 def answer_with_openai(question: str, perspective: str, k=TOP_K, model="gpt-4o-mini", max_chars=MAX_CTX_CHARS):
-    hits = retrieve(question, k=k)
-    context = pack_context(hits, max_chars=max_chars)
+    law_hits = retrieve_laws(question, k=k)
+    context = pack_context(law_hits, max_chars=max_chars)
 
-    prompt = PROMPT.format(context=context, question=f"Perspective: {perspective}, Question: {question}")
+    form_hits = retrieve_forms(question, k=3)
+
+    candidate_forms = []
+    for doc, meta, dist in form_hits:
+        name = meta.get("form_name") or meta.get("title")
+        if not name:
+            continue
+
+        url = meta.get("form_url") or meta.get("source") or ""
+        if not url:
+            continue
+
+        candidate_forms.append({
+            "form_name": name,
+            "jurisdiction": meta.get("jurisdiction"),
+            "form_url": url,
+            "used_when": meta.get("used_when")
+        })
+
+    forms_text = json.dumps(candidate_forms, ensure_ascii=False)
+
+    prompt = PROMPT.format(forms=forms_text, context=context, question=f"Perspective: {perspective}, Question: {question}")
     resp = client.chat.completions.create(
         model=model,
         messages=[
@@ -195,7 +254,7 @@ def answer_with_openai(question: str, perspective: str, k=TOP_K, model="gpt-4o-m
                 "Beantworte die Frage gemäss obigen Vorgaben. Fülle die Felder des JSON-Schemas aus. "
                 "Sprache: Deutsch (Schweiz), Du-Form. Für 'steps' gilt: Gib 2–8 kurze Einträge zurück, "
                 "jeder Eintrag genau EIN Schritt, EINE Zeile, KEINE Nummerierung oder Zeilenumbrüche. "
-                "Für 'forms': gib die genauen offiziellen Bezeichnungen aus dem CONTEXT zurück (leer, wenn keine). "
+                "Für 'forms': Wähle nur Einträge aus FORMS, deren 'used_when' gemäss den Regeln (PERS/POS/NEG) klar zur Frage und zur Perspective passt. Erfinde keine neuen Formulare. "
                 "Gib NUR JSON zurück."
             }]}
         ],
@@ -204,23 +263,24 @@ def answer_with_openai(question: str, perspective: str, k=TOP_K, model="gpt-4o-m
     )
     content = resp.choices[0].message.content or ""
     parsed = json.loads(content)  # will raise clearly if not JSON
+
     validate(instance=parsed, schema=schema)
 
+    answer = parsed.get("answer","").strip()
     steps = parsed.get("steps") or []
     forms = parsed.get("forms") or []
     refs  = parsed.get("references") or []
 
     # normalize
     if isinstance(steps, str): steps = [s.strip() for s in steps.split("\n") if s.strip()]
-    if isinstance(forms, str): forms = [f.strip() for f in forms.split("\n") if f.strip()]
 
-    return (parsed.get("answer","").strip(), steps, forms, refs, hits)
+    return answer, steps, forms, refs, law_hits
 
 
 # ## 🔧 Answer Generation & Formatting
 # We query the OpenAI model and reformat the answers to provide a unified and unchanging design
 
-# In[23]:
+# In[10]:
 
 
 def sanitize_step(step: str) -> str:
@@ -238,7 +298,7 @@ def format_bulleted(items: Iterable[str]) -> str:
     return "\n" + "\n".join(f"- {t}" for t in items) if items else ""
 
 
-# In[24]:
+# In[11]:
 
 
 def generate_answer(question: str, perspective: str) -> Tuple[str, str, str, str]:
@@ -262,9 +322,14 @@ def generate_answer(question: str, perspective: str) -> Tuple[str, str, str, str
         steps_md = format_numbered(clean_steps)
 
         # --- Forms ---
-        if isinstance(forms, str):
-            forms = [f.strip() for f in forms.split("\n") if f.strip()]
-        forms_md = format_bulleted(forms) if forms else "Keine Formulare gefunden."
+        if forms:
+            form_strings = [
+                f"{f.get('form_name', 'Formular')} ({f.get('jurisdiction', '')}) – [Formular ansehen]({f.get('form_url', '')})"
+                for f in forms
+            ]
+            forms_md = format_bulleted(form_strings)
+        else:
+            forms_md = "Keine Formulare gefunden."
 
         # --- Sources ---
         if references:
