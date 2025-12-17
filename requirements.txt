@@ -7,3 +7,5 @@ python-dotenv==1.2.1
 tqdm==4.67.1
 langchain-text-splitters==1.0.0
 pymupdf==1.26.6
+pandas
+openpyxl

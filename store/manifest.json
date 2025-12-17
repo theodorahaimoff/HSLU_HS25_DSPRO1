@@ -1,7 +1,7 @@
 {
-  "index_version": "v2025-11-20",
+  "index_version": "v2025-12-17",
   "model": "text-embedding-3-small",
   "dim": 1536,
-  "dir": "v2025-11-20_text-embedding-3-small_1536",
-  "collection": "swiss_private_rental_law_oai_v2025-11-20"
+  "dir": "v2025-12-17_text-embedding-3-small_1536",
+  "collection": "swiss_private_rental_law_oai_v2025-12-17"
 }

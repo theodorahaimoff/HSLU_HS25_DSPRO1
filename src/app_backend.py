@@ -88,14 +88,17 @@ def retrieve_laws(query: str, k: int = TOP_K, k_pre: int = PRE_K):
 def retrieve_forms(query: str, k: int = TOP_K, k_pre: int = PRE_K):
     return retrieve(query=query, k=k, k_pre=k_pre, where={"doc_type": "form"})
 
-def pack_context(retrieved, max_chars=MAX_CTX_CHARS, per_source_cap=3):
+def retrieve_cases(query: str, k: int = TOP_K, k_pre: int = PRE_K):
+    return retrieve(query=query, k=k, k_pre=k_pre, where={"doc_type": "case"})
+
+def pack_context(retrieved, max_chars=MAX_CTX_CHARS, per_source_cap=3, label="CTX"):
     ctx, total, seen = [], 0, {}
     for doc, meta, dist in retrieved:
-        key = (meta.get("law"), meta.get("article"))
+        key = (meta.get("doc_type"), meta.get("law"), meta.get("article"))
         seen[key] = seen.get(key, 0) + 1
         if seen[key] > per_source_cap:
             continue
-        stamp = f"[{meta.get('law','?')} {meta.get('title','?')} – {meta.get('source')}]"
+        stamp = f"[{label} {meta.get('doc_type','?')} | {meta.get('law','?')} | {meta.get('title','?')} | {meta.get('source','')}]"
         block = f"{stamp}\n{doc.strip()}\n\n"
         if total + len(block) > max_chars:
             break
@@ -222,9 +225,20 @@ schema = {
 
 def answer_with_openai(question: str, perspective: str, k=TOP_K, model="gpt-4o-mini", max_chars=MAX_CTX_CHARS):
     law_hits = retrieve_laws(question, k=k)
-    context = pack_context(law_hits, max_chars=max_chars)
-
     form_hits = retrieve_forms(question, k=3)
+    case_hits = retrieve_cases(question, k=k)
+
+    law_budget = int(max_chars * 0.75)
+    case_budget = max_chars - law_budget
+
+    laws_context = pack_context(law_hits, max_chars=law_budget, per_source_cap=3, label="LAW")
+    cases_context = pack_context(case_hits, max_chars=case_budget, per_source_cap=2, label="CASE")
+    context = (
+        "PRIMARY SOURCES (statutes, normative):\n"
+        + laws_context
+        + "\nSECONDARY SOURCES (case law summaries, interpretative):\n"
+        + cases_context
+    ).strip()
 
     candidate_forms = []
     for doc, meta, dist in form_hits:
